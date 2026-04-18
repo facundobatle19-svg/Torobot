@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dylan Bot</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Inter',sans-serif;
+}
+
+body{
+  background:#050505;
+  color:white;
+  overflow-x:hidden;
+}
+
+/* 🔥 fondo animado */
+body::before{
+  content:"";
+  position:fixed;
+  width:600px;
+  height:600px;
+  background:#00ffcc;
+  filter:blur(200px);
+  top:-100px;
+  left:-100px;
+  opacity:0.2;
+}
+
+body::after{
+  content:"";
+  position:fixed;
+  width:500px;
+  height:500px;
+  background:#0066ff;
+  filter:blur(200px);
+  bottom:-150px;
+  right:-100px;
+  opacity:0.2;
+}
+
+/* navbar */
+header{
+  display:flex;
+  justify-content:space-between;
+  padding:20px 60px;
+  position:fixed;
+  width:100%;
+  backdrop-filter:blur(10px);
+  background:rgba(0,0,0,0.3);
+  z-index:1000;
+}
+
+header h1{
+  color:#00ffcc;
+}
+
+nav a{
+  color:white;
+  margin-left:25px;
+  text-decoration:none;
+  transition:.3s;
+}
+
+nav a:hover{
+  color:#00ffcc;
+}
+
+/* hero */
+.hero{
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+}
+
+.hero h2{
+  font-size:3.5rem;
+  max-width:800px;
+}
+
+.hero span{
+  background:linear-gradient(90deg,#00ffcc,#0066ff);
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+.hero p{
+  margin:20px 0;
+  opacity:0.7;
+}
+
+.btn{
+  padding:15px 35px;
+  border:none;
+  border-radius:12px;
+  background:linear-gradient(90deg,#00ffcc,#0066ff);
+  color:black;
+  font-weight:bold;
+  cursor:pointer;
+  transition:.3s;
+}
+
+.btn:hover{
+  transform:scale(1.1);
+  box-shadow:0 0 25px #00ffcc;
+}
+
+/* secciones */
+section{
+  padding:120px 60px;
+}
+
+/* cards */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:30px;
+  margin-top:60px;
+}
+
+.card{
+  padding:30px;
+  border-radius:20px;
+  background:rgba(255,255,255,0.05);
+  backdrop-filter:blur(10px);
+  transition:.3s;
+}
+
+.card:hover{
+  transform:translateY(-10px) scale(1.03);
+  box-shadow:0 0 25px rgba(0,255,204,0.3);
+}
+
+/* sección demo */
+.demo{
+  text-align:center;
+}
+
+.demo-box{
+  margin-top:40px;
+  padding:30px;
+  border-radius:20px;
+  background:#111;
+  max-width:400px;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+.demo input{
+  width:100%;
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  margin-top:10px;
+}
+
+.demo button{
+  margin-top:10px;
+  width:100%;
+}
+
+/* CTA */
+.cta{
+  text-align:center;
+  background:linear-gradient(90deg,#00ffcc,#0066ff);
+  color:black;
+  border-radius:30px;
+  margin:60px;
+}
+
+/* footer */
+footer{
+  text-align:center;
+  padding:30px;
+  opacity:0.6;
+}
+
+/* animación scroll */
+.hidden{
+  opacity:0;
+  transform:translateY(50px);
+  transition:all 1s;
+}
+
+.show{
+  opacity:1;
+  transform:translateY(0);
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Dylan Bot</h1>
+  <nav>
+    <a href="#features">Funciones</a>
+    <a href="#demo">Demo</a>
+    <a href="#contacto">Contacto</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <h2>Automatizá tu negocio con <span>inteligencia artificial</span></h2>
+  <p>Atención automática, turnos y ventas 24/7</p>
+  <button class="btn" onclick="goWhats()">Hablar por WhatsApp</button>
+</div>
+
+<section id="features" class="hidden">
+  <h2>Funciones principales</h2>
+
+  <div class="grid">
+    <div class="card">
+      <h3>🤖 Respuestas IA</h3>
+      <p>Conversaciones naturales automáticas.</p>
+    </div>
+
+    <div class="card">
+      <h3>📅 Turnos inteligentes</h3>
+      <p>Agenda automática con confirmación.</p>
+    </div>
+
+    <div class="card">
+      <h3>💬 WhatsApp integrado</h3>
+      <p>Funciona directo con tu número.</p>
+    </div>
+
+    <div class="card">
+      <h3>📊 Datos de clientes</h3>
+      <p>Guardá y analizá información.</p>
+    </div>
+  </div>
+</section>
+
+<section id="demo" class="demo hidden">
+  <h2>Probá el bot</h2>
+
+  <div class="demo-box">
+    <p id="chat">👋 Hola! ¿En qué puedo ayudarte?</p>
+    <input id="input" placeholder="Escribí algo...">
+    <button class="btn" onclick="responder()">Enviar</button>
+  </div>
+</section>
+
+<section id="contacto" class="cta hidden">
+  <h2>¿Listo para automatizar?</h2>
+  <p>Empezá hoy con Dylan Bot</p>
+  <button class="btn" onclick="goWhats()">Contactar</button>
+</section>
+
+<footer>
+  © 2026 Dylan Bot
+</footer>
+
+<script>
+function goWhats(){
+  window.open("https://wa.me/549XXXXXXXXXX")
+}
+
+function responder(){
+  let input = document.getElementById("input").value
+  let chat = document.getElementById("chat")
+
+  if(input.toLowerCase().includes("turno")){
+    chat.innerHTML = "📅 Claro! ¿Qué día querés?"
+  } else {
+    chat.innerHTML = "🤖 Entiendo... contame más!"
+  }
+}
+
+/* animación scroll */
+const observer = new IntersectionObserver(entries=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      entry.target.classList.add("show")
+    }
+  })
+})
+
+document.querySelectorAll(".hidden").forEach(el=>observer.observe(el))
+</script>
+
+</body>
+</html>
