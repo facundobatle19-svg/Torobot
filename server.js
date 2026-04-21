@@ -8,32 +8,32 @@ import { Readable } from "stream";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
 
 // ==========================================
-// 🌐 CONFIG PUPPETEER (MÁXIMO AHORRO)
+// 🌐 CONFIG PUPPETEER
 // ==========================================
 function getPuppeteerConfig() {
   const isRender = process.env.RENDER === "true";
 
-  const args = [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage', // Crítico para Docker/Render
-    '--disable-gpu',
-    '--no-zygote',
-    '--single-process', // Ahorra muchísima RAM al no abrir múltiples procesos
-    '--disable-extensions',
-    '--disable-accelerated-2d-canvas',
-    '--no-first-run',
-    '--js-flags="--max-old-space-size=256"', // Limita la RAM de V8 dentro de Chrome
-  ];
-
   if (isRender) {
-    // Usamos una ruta fija pero limpia para no llenar el disco de perfiles temporales
+    // Generamos un ID único por ejecución para el perfil de Chrome
+    // Esto evita el error de "Profile in use" si el anterior no cerró bien
+    const execId = Date.now(); 
+    
     return {
       headless: true,
-      args: [...args, '--user-data-dir=/var/data/chrome-profile']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-zygote',
+        '--single-process',
+        // Usamos una subcarpeta con el ID del proceso para el perfil
+        `--user-data-dir=/var/data/chrome-profiles/${execId}` 
+      ]
     };
   }
 
+  // Local (Mac)
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
@@ -41,107 +41,247 @@ function getPuppeteerConfig() {
   };
 }
 
-// 🔌 MongoDB con Pool pequeño
-const clientDB = new MongoClient(process.env.MONGO_URI, {
-  maxPoolSize: 2, // No necesitamos más conexiones, ahorra memoria de red
-  serverSelectionTimeoutMS: 5000
-});
+// 🔌 MongoDB
+const uri = process.env.MONGO_URI;
+const clientDB = new MongoClient(uri);
 await clientDB.connect();
+
 const db = clientDB.db("coworking");
 const reservas = db.collection("reservas");
 const conversaciones = db.collection("conversaciones");
 
+console.log("Conectado a MongoDB ✅");
+
 // 🤖 IA
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY
+});
 
-// [Mantenemos parsearFechaTurno igual pero optimizamos el flujo de datos]
+// ==========================================
+// 🧠 PARSER DE FECHAS
+// ==========================================
+function parsearFechaTurno(texto) {
+  const ahora = new Date();
+  let fecha = new Date(ahora);
+  let horaDetectada = false;
+  let diaDetectado = false; 
+  texto = texto.toLowerCase();
 
+  const diasSemana = {
+    domingo: 0, lunes: 1, martes: 2, miercoles: 3, miércoles: 3,
+    jueves: 4, viernes: 5, sabado: 6, sábado: 6
+  };
+
+  if (texto.includes("pasado mañana")) {
+    fecha.setDate(fecha.getDate() + 2);
+    diaDetectado = true;
+  } else if (texto.includes("mañana")) {
+    fecha.setDate(fecha.getDate() + 1);
+    diaDetectado = true;
+  } else if (texto.includes("hoy")) {
+    diaDetectado = true;
+  }
+
+  for (const dia in diasSemana) {
+    if (texto.includes(dia)) {
+      const hoy = ahora.getDay();
+      const objetivo = diasSemana[dia];
+      let diferencia = objetivo - hoy;
+      if (texto.includes("que viene")) diferencia += 7;
+      if (diferencia <= 0) diferencia += 7;
+      fecha.setDate(ahora.getDate() + diferencia);
+      diaDetectado = true;
+    }
+  }
+
+  const matchFecha = texto.match(/\b(\d{1,2})[\/\-](\d{1,2})\b/);
+  if (matchFecha) {
+    const dia = parseInt(matchFecha[1]);
+    const mes = parseInt(matchFecha[2]);
+    if (mes >= 1 && mes <= 12) {
+      fecha.setMonth(mes - 1);
+      fecha.setDate(dia);
+      diaDetectado = true;
+    }
+  }
+
+  const matchDia = texto.match(/\bel\s?(\d{1,2})\b/);
+  if (matchDia) {
+    const dia = parseInt(matchDia[1]);
+    fecha.setDate(dia);
+    if (fecha < ahora) fecha.setMonth(fecha.getMonth() + 1);
+    diaDetectado = true;
+  }
+
+  const matchesHora = [...texto.matchAll(/(\d{1,2})(:(\d{2}))?\s*(hs|horas)?/g)];
+  if (matchesHora.length > 0) {
+    const matchHora = matchesHora[matchesHora.length - 1];
+    const hora = parseInt(matchHora[1], 10);
+    const minutos = matchHora[3] ? parseInt(matchHora[3], 10) : 0;
+    fecha.setHours(hora, minutos, 0, 0);
+    horaDetectada = true;
+  } else {
+    fecha.setHours(0, 0, 0, 0);
+  }
+
+  return { fecha, horaDetectada, diaDetectado };
+}
+
+const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya"];
+
+// ==========================================
+// 📱 FÁBRICA DE BOTS
+// ==========================================
 function crearCliente(nombre, promptPersonalizado) {
   const client = new Client({
     authStrategy: new LocalAuth({
       clientId: nombre,
       dataPath: process.env.RENDER ? `/var/data/.wwebjs_auth/${nombre}` : `./.wwebjs_auth/${nombre}`
     }),
-    // Forzamos una versión de web liviana y remota para no saturar el inicio
-    webVersionCache: {
-      type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-    },
     puppeteer: getPuppeteerConfig()
   });
 
-  client.on("qr", (qr) => qrcode.generate(qr, { small: true }));
+  client.on("qr", (qr) => {
+    console.log(`\n--- QR DE ${nombre.toUpperCase()} ---`);
+    qrcode.generate(qr, { small: true });
+  });
+
+  client.on("ready", () => console.log(`✅ WhatsApp ${nombre} conectado 🚀`));
 
   client.on("message", async (message) => {
-    // 1. Filtrado inmediato: No procesar nada innecesario
-    if (message.fromMe || message.from.includes("@g.us") || message.from === 'status@broadcast') return;
-
     try {
+      if (message.fromMe || message.from.includes("@g.us") || message.from === 'status@broadcast') return;
+
       let texto = message.body || "";
 
-      // 2. Audio: Solo descargar si es estrictamente necesario
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         const media = await message.downloadMedia();
-        if (media) {
-          const buffer = Buffer.from(media.data, 'base64');
-          const transcription = await groq.audio.transcriptions.create({
-            file: Readable.from(buffer),
-            model: "whisper-large-v3",
-            language: "es",
-          });
-          texto = transcription.text;
-        }
+        const buffer = Buffer.from(media.data, 'base64');
+        const stream = Readable.from(buffer);
+        stream.path = "audio.ogg";
+        const transcription = await groq.audio.transcriptions.create({
+          file: stream,
+          model: "whisper-large-v3",
+          language: "es",
+        });
+        texto = transcription.text;
+      }
+
+      if (message.hasMedia && message.type === 'image') {
+        return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
       }
 
       if (!texto || texto.trim() === "") return;
       const textoLower = texto.toLowerCase().trim();
 
-      // 3. Proyección en DB: Solo traemos los campos que vamos a usar
-      let conv = await conversaciones.findOne(
-        { telefono: message.from, botId: nombre },
-        { projection: { estado: 1, historial: 1, fechaTurnoTemp: 1 } }
-      );
-
+      let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
       if (!conv) {
         conv = { telefono: message.from, estado: "inicio", botId: nombre, historial: [] };
         await conversaciones.insertOne(conv);
-        // ... (Lógica de saludo inicial)
+        if (nombre === "inmobiliaria") {
+          const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto el enlace donde puede ver el *Brochure 2026*: http://bit.ly/4trNVVr\n\n¿En qué zona se encuentra el terreno?`;
+          await conversaciones.updateOne({ _id: conv._id }, { $push: { historial: { role: "assistant", content: saludoInmo } } });
+          return message.reply(saludoInmo);
+        }
       }
 
-      // [Lógica de estados igual...]
+      const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
+      if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
+        await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
+        conv.estado = "inicio";
+      }
 
-      // 4. Memoria IA: Reducimos a los últimos 6 mensajes (suficiente para contexto)
+      const esPalabraNeutra = ["bueno", "dale", "ok", "listo", "perfecto", "dale dale"].includes(textoLower);
+
+      if (conv.estado === "pendiente_confirmacion") {
+        if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
+          await reservas.insertOne({
+            botId: nombre,
+            telefono: message.from,
+            fechaTurno: new Date(conv.fechaTurnoTemp),
+            estado: "pendiente",
+            fechaSolicitud: new Date()
+          });
+          await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
+          return message.reply("✅ Reserva tomada. Te confirmamos pronto.");
+        }
+        if (textoLower === "no") {
+          await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "esperando_horario", fechaTurnoTemp: null } });
+          return message.reply("Perfecto 👍 Decime otro día y horario.");
+        }
+      }
+
+      if (conv.estado === "esperando_horario") {
+        const resultado = parsearFechaTurno(textoLower);
+        if (resultado && resultado.horaDetectada) {
+          let fechaFinal = new Date(resultado.fecha);
+          if (conv.fechaTurnoTemp) {
+            const base = new Date(conv.fechaTurnoTemp);
+            base.setHours(fechaFinal.getHours(), fechaFinal.getMinutes(), 0, 0);
+            fechaFinal = base;
+          }
+          const ocupado = await reservas.findOne({
+            botId: nombre,
+            fechaTurno: { $gte: fechaFinal, $lt: new Date(fechaFinal.getTime() + 3600000) },
+            estado: { $ne: "cancelado" }
+          });
+          if (ocupado) return message.reply("Ese horario ya está ocupado 😕");
+          await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: fechaFinal } });
+          return message.reply(`¿Confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`);
+        }
+        if (esPalabraNeutra) return message.reply("¡Buenísimo! ¿A qué hora te anoto? (Atendemos de 7 a 18 hs)");
+      }
+
+      if (!esPalabraNeutra) {
+        const palabrasReserva = ["turno", "reserva", "disponible", "ir", "voy", "pasar", "agendar", "sacar", "reservar"];
+        const textoReservaFuerte = /reservar|sacar turno|confirmar|puede ser|ir a|visitar|mañana|hoy|hs|se puede|horario|a las/.test(textoLower);
+        if (palabrasReserva.some(p => textoLower.includes(p)) || textoReservaFuerte) {
+            const resultado = parsearFechaTurno(textoLower);
+            if (resultado.fecha && resultado.horaDetectada && resultado.diaDetectado) {
+              const ocupado = await reservas.findOne({
+                botId: nombre,
+                fechaTurno: { $gte: resultado.fecha, $lt: new Date(resultado.fecha.getTime() + 3600000) },
+                estado: { $ne: "cancelado" }
+              });
+              if (ocupado) return message.reply("Ese horario ya está ocupado 😕");
+              await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: resultado.fecha } });
+              return message.reply(`¿Confirmamos el turno para el ${resultado.fecha.toLocaleString("es-AR")}? (SI/NO)`);
+            }
+            if (resultado.fecha && resultado.diaDetectado && !resultado.horaDetectada) {
+              await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "esperando_horario", fechaTurnoTemp: resultado.fecha } });
+              return message.reply("¡Obvio! ¿En qué horario te gustaría venir? (Atendemos de 7 a 18 hs)");
+            }
+        }
+      }
+
+      if (palabrasCierre.some(p => textoLower === p || (textoLower.length < 10 && textoLower.includes(p)))) {
+        await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
+        return message.reply("¡De nada! 😊 Si necesitás algo más, avisame.");
+      }
+
+      if (conv.estado === "cerrada") return;
+
+      const convActualizada = await conversaciones.findOne({ _id: conv._id });
+      const historialChat = convActualizada.historial || [];
+
       const completion = await groq.chat.completions.create({
-        messages: [
-          { role: "system", content: promptPersonalizado },
-          ...conv.historial.slice(-6), 
-          { role: "user", content: texto }
-        ],
+        messages: [{ role: "system", content: promptPersonalizado }, ...historialChat.slice(-8), { role: "user", content: texto }],
         model: "llama-3.1-8b-instant"
       });
 
       const respuestaIA = completion.choices[0].message.content;
 
-      // 5. Historial: Solo guardamos los últimos 10 mensajes en la DB
-      await conversaciones.updateOne(
-        { _id: conv._id },
-        { 
-          $push: { 
-            historial: { 
-              $each: [
-                { role: "user", content: texto }, 
-                { role: "assistant", content: respuestaIA }
-              ], 
-              $slice: -10 
-            } 
-          } 
-        }
-      );
+      await conversaciones.updateOne({ _id: conv._id }, { 
+        $push: { historial: { $each: [{ role: "user", content: texto }, { role: "assistant", content: respuestaIA }], $slice: -20 } } 
+      });
 
+      if (["teléfono", "email", "@", ".com"].some(p => respuestaIA.toLowerCase().includes(p))) {
+        return message.reply("Dejanos tu consulta y te respondemos a la brevedad");
+      }
       return message.reply(respuestaIA);
 
     } catch (err) {
-      console.error("Error:", err.message);
+      console.error(`Error en bot ${nombre}:`, err);
     }
   });
 
