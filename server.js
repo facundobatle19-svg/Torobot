@@ -319,5 +319,5 @@ function crearCliente(nombre, promptPersonalizado) {
   client.initialize();
 }
 
-crearCliente("toronja", promptToronja);
+//crearCliente("toronja", promptToronja);
 crearCliente("inmobiliaria", promptInmobiliaria);
