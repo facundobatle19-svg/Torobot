@@ -36,6 +36,7 @@ body::before{
 
 body::after{
   content:"";
+  pointer-events:none;
   position:fixed;
   width:500px;
   height:500px;
@@ -60,6 +61,25 @@ header{
 
 header h1{
   color:#00ffcc;
+}
+
+@media (max-width: 768px){
+
+header{
+  flex-direction:column;
+  align-items:center;
+  padding:15px 20px;
+}
+
+nav{
+  margin-top:10px;
+}
+
+nav a{
+  margin:0 10px;
+  font-size:14px;
+}
+
 }
 
 nav a{
@@ -258,7 +278,7 @@ footer{
 
 <script>
 function goWhats(){
-  window.open("https://wa.me/5493413242549")
+  window.location.href = "https://wa.me/5493413242549"
 }
 
 function responder(){
