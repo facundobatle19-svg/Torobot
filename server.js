@@ -18,12 +18,13 @@ function getPuppeteerConfig() {
   if (isRender) {
     return {
       headless: true,
-      executablePath: puppeteer.executablePath(), // 🔥 CLAVE
+      // Eliminamos executablePath para que use el que Puppeteer instala por defecto
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--single-process' // Agregamos esto para ahorrar memoria en Render
       ]
     };
   }
