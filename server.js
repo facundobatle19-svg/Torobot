@@ -18,7 +18,7 @@ function getPuppeteerConfig() {
   if (isRender) {
     return {
       headless: true,
-      executablePath: "/usr/bin/chromium-browser", // 🔥 USAR EL DEL SISTEMA
+      executablePath: puppeteer.executablePath(), // 🔥 CLAVE
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
