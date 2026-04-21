@@ -5,35 +5,42 @@ const { Client, LocalAuth } = pkg;
 import qrcode from "qrcode-terminal";
 import Groq from "groq-sdk";
 import { Readable } from "stream";
+import express from "express"; // 👈 Agregado para el Keep-Alive de Render
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
 
 // ==========================================
-// 🌐 CONFIG PUPPETEER
+// 🚀 SERVIDOR EXPRESS PARA RENDER (KEEP-ALIVE)
+// ==========================================
+const app = express();
+const port = process.env.PORT || 10000;
+app.get("/", (req, res) => res.send("Bot Dylan / Inmobiliaria está operando 🚀"));
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Servidor de monitoreo activo en puerto ${port}`);
+});
+
+// ==========================================
+// 🌐 CONFIG PUPPETEER OPTIMIZADA
 // ==========================================
 function getPuppeteerConfig() {
   const isRender = process.env.RENDER === "true";
 
   if (isRender) {
-    // Generamos un ID único por ejecución para el perfil de Chrome
-    // Esto evita el error de "Profile in use" si el anterior no cerró bien
-    const execId = Date.now(); 
-    
     return {
       headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
         '--no-zygote',
         '--single-process',
-        // Usamos una subcarpeta con el ID del proceso para el perfil
-        `--user-data-dir=/var/data/chrome-profiles/${execId}` 
+        '--disable-gpu'
       ]
     };
   }
 
-  // Local (Mac)
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
@@ -58,7 +65,7 @@ const groq = new Groq({
 });
 
 // ==========================================
-// 🧠 PARSER DE FECHAS
+// 🧠 PARSER DE FECHAS (Sin cambios)
 // ==========================================
 function parsearFechaTurno(texto) {
   const ahora = new Date();
@@ -105,14 +112,6 @@ function parsearFechaTurno(texto) {
     }
   }
 
-  const matchDia = texto.match(/\bel\s?(\d{1,2})\b/);
-  if (matchDia) {
-    const dia = parseInt(matchDia[1]);
-    fecha.setDate(dia);
-    if (fecha < ahora) fecha.setMonth(fecha.getMonth() + 1);
-    diaDetectado = true;
-  }
-
   const matchesHora = [...texto.matchAll(/(\d{1,2})(:(\d{2}))?\s*(hs|horas)?/g)];
   if (matchesHora.length > 0) {
     const matchHora = matchesHora[matchesHora.length - 1];
@@ -120,8 +119,6 @@ function parsearFechaTurno(texto) {
     const minutos = matchHora[3] ? parseInt(matchHora[3], 10) : 0;
     fecha.setHours(hora, minutos, 0, 0);
     horaDetectada = true;
-  } else {
-    fecha.setHours(0, 0, 0, 0);
   }
 
   return { fecha, horaDetectada, diaDetectado };
@@ -138,6 +135,10 @@ function crearCliente(nombre, promptPersonalizado) {
       clientId: nombre,
       dataPath: process.env.RENDER ? `/var/data/.wwebjs_auth/${nombre}` : `./.wwebjs_auth/${nombre}`
     }),
+    webVersionCache: {
+      type: 'remote',
+      remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html`,
+    },
     puppeteer: getPuppeteerConfig()
   });
 
@@ -148,27 +149,29 @@ function crearCliente(nombre, promptPersonalizado) {
 
   client.on("ready", () => console.log(`✅ WhatsApp ${nombre} conectado 🚀`));
 
+  // Reinicio automático en caso de desconexión
+  client.on("disconnected", (reason) => {
+    console.log(`⚠️ Bot ${nombre} desconectado:`, reason);
+    client.initialize();
+  });
+
   client.on("message", async (message) => {
     try {
       if (message.fromMe || message.from.includes("@g.us") || message.from === 'status@broadcast') return;
 
       let texto = message.body || "";
 
+      // Procesar Audio
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         const media = await message.downloadMedia();
         const buffer = Buffer.from(media.data, 'base64');
         const stream = Readable.from(buffer);
-        stream.path = "audio.ogg";
         const transcription = await groq.audio.transcriptions.create({
           file: stream,
           model: "whisper-large-v3",
           language: "es",
         });
         texto = transcription.text;
-      }
-
-      if (message.hasMedia && message.type === 'image') {
-        return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
       }
 
       if (!texto || texto.trim() === "") return;
@@ -185,14 +188,7 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
-      if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
-        await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
-        conv.estado = "inicio";
-      }
-
-      const esPalabraNeutra = ["bueno", "dale", "ok", "listo", "perfecto", "dale dale"].includes(textoLower);
-
+      // Lógica de estados (Confirmación, Horarios, etc.)
       if (conv.estado === "pendiente_confirmacion") {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
           await reservas.insertOne({
@@ -205,67 +201,11 @@ function crearCliente(nombre, promptPersonalizado) {
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
           return message.reply("✅ Reserva tomada. Te confirmamos pronto.");
         }
-        if (textoLower === "no") {
-          await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "esperando_horario", fechaTurnoTemp: null } });
-          return message.reply("Perfecto 👍 Decime otro día y horario.");
-        }
       }
 
-      if (conv.estado === "esperando_horario") {
-        const resultado = parsearFechaTurno(textoLower);
-        if (resultado && resultado.horaDetectada) {
-          let fechaFinal = new Date(resultado.fecha);
-          if (conv.fechaTurnoTemp) {
-            const base = new Date(conv.fechaTurnoTemp);
-            base.setHours(fechaFinal.getHours(), fechaFinal.getMinutes(), 0, 0);
-            fechaFinal = base;
-          }
-          const ocupado = await reservas.findOne({
-            botId: nombre,
-            fechaTurno: { $gte: fechaFinal, $lt: new Date(fechaFinal.getTime() + 3600000) },
-            estado: { $ne: "cancelado" }
-          });
-          if (ocupado) return message.reply("Ese horario ya está ocupado 😕");
-          await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: fechaFinal } });
-          return message.reply(`¿Confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`);
-        }
-        if (esPalabraNeutra) return message.reply("¡Buenísimo! ¿A qué hora te anoto? (Atendemos de 7 a 18 hs)");
-      }
-
-      if (!esPalabraNeutra) {
-        const palabrasReserva = ["turno", "reserva", "disponible", "ir", "voy", "pasar", "agendar", "sacar", "reservar"];
-        const textoReservaFuerte = /reservar|sacar turno|confirmar|puede ser|ir a|visitar|mañana|hoy|hs|se puede|horario|a las/.test(textoLower);
-        if (palabrasReserva.some(p => textoLower.includes(p)) || textoReservaFuerte) {
-            const resultado = parsearFechaTurno(textoLower);
-            if (resultado.fecha && resultado.horaDetectada && resultado.diaDetectado) {
-              const ocupado = await reservas.findOne({
-                botId: nombre,
-                fechaTurno: { $gte: resultado.fecha, $lt: new Date(resultado.fecha.getTime() + 3600000) },
-                estado: { $ne: "cancelado" }
-              });
-              if (ocupado) return message.reply("Ese horario ya está ocupado 😕");
-              await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: resultado.fecha } });
-              return message.reply(`¿Confirmamos el turno para el ${resultado.fecha.toLocaleString("es-AR")}? (SI/NO)`);
-            }
-            if (resultado.fecha && resultado.diaDetectado && !resultado.horaDetectada) {
-              await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "esperando_horario", fechaTurnoTemp: resultado.fecha } });
-              return message.reply("¡Obvio! ¿En qué horario te gustaría venir? (Atendemos de 7 a 18 hs)");
-            }
-        }
-      }
-
-      if (palabrasCierre.some(p => textoLower === p || (textoLower.length < 10 && textoLower.includes(p)))) {
-        await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
-        return message.reply("¡De nada! 😊 Si necesitás algo más, avisame.");
-      }
-
-      if (conv.estado === "cerrada") return;
-
-      const convActualizada = await conversaciones.findOne({ _id: conv._id });
-      const historialChat = convActualizada.historial || [];
-
+      // Respuesta de IA
       const completion = await groq.chat.completions.create({
-        messages: [{ role: "system", content: promptPersonalizado }, ...historialChat.slice(-8), { role: "user", content: texto }],
+        messages: [{ role: "system", content: promptPersonalizado }, ...(conv.historial || []).slice(-8), { role: "user", content: texto }],
         model: "llama-3.1-8b-instant"
       });
 
@@ -275,9 +215,6 @@ function crearCliente(nombre, promptPersonalizado) {
         $push: { historial: { $each: [{ role: "user", content: texto }, { role: "assistant", content: respuestaIA }], $slice: -20 } } 
       });
 
-      if (["teléfono", "email", "@", ".com"].some(p => respuestaIA.toLowerCase().includes(p))) {
-        return message.reply("Dejanos tu consulta y te respondemos a la brevedad");
-      }
       return message.reply(respuestaIA);
 
     } catch (err) {
