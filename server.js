@@ -7,17 +7,18 @@ import Groq from "groq-sdk";
 import { Readable } from "stream";
 import { promptToronja } from "./prompts/toronja.js";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
+import puppeteer from "puppeteer";
 
 // ==========================================
 // 🌐 CONFIG PUPPETEER
 // ==========================================
 function getPuppeteerConfig() {
   const isRender = process.env.RENDER === "true";
-  const isLinux = process.platform === "linux";
 
-  if (isRender || isLinux) {
+  if (isRender) {
     return {
       headless: true,
+      executablePath: puppeteer.executablePath(), // 🔥 CLAVE
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
