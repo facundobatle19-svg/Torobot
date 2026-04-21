@@ -7,6 +7,8 @@ import Groq from "groq-sdk";
 import { Readable } from "stream";
 import { promptToronja } from "./prompts/toronja.js";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
+import fs from "fs"; // <-- Agregado para limpiar locks
+import path from "path"; // <-- Agregado para rutas de archivos
 
 // ==========================================
 // 🌐 CONFIG PUPPETEER (Optimizado para RAM)
@@ -129,6 +131,22 @@ const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta l
 // 📱 FÁBRICA DE BOTS
 // ==========================================
 function crearCliente(nombre, promptPersonalizado) {
+  // --- LÓGICA ANTI-LOCK PARA RENDER ---
+  const sessionPath = process.env.RENDER 
+    ? `/var/data/.wwebjs_auth/session-${nombre}` 
+    : `./.wwebjs_auth/session-${nombre}`;
+
+  try {
+    const lockPath = path.join(sessionPath, 'Default', 'SingletonLock');
+    if (fs.existsSync(lockPath)) {
+      fs.unlinkSync(lockPath);
+      console.log(`🔓 Lock de Chromium eliminado para ${nombre}`);
+    }
+  } catch (err) {
+    // Si no existe o no se puede borrar, ignoramos para no frenar el inicio
+  }
+  // ------------------------------------
+
   const client = new Client({
     authStrategy: new LocalAuth({
       clientId: nombre,
@@ -289,7 +307,7 @@ function crearCliente(nombre, promptPersonalizado) {
       const completion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: promptPersonalizado },
-          ...historialChat.slice(-6), // Reducido a 6 para ahorrar RAM
+          ...historialChat.slice(-6), // Enviamos los últimos 6 mensajes para ahorrar RAM
           { role: "user", content: texto }
         ],
         model: "llama-3.1-8b-instant"
@@ -326,6 +344,5 @@ function crearCliente(nombre, promptPersonalizado) {
   client.initialize();
 }
 
-// Descomentar el que necesites usar
 // crearCliente("toronja", promptToronja);
 crearCliente("inmobiliaria", promptInmobiliaria);
