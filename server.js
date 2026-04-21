@@ -5,7 +5,6 @@ const { Client, LocalAuth } = pkg;
 import qrcode from "qrcode-terminal";
 import Groq from "groq-sdk";
 import { Readable } from "stream";
-//import { promptToronja } from "./prompts/toronja.js";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
 
 // ==========================================
@@ -15,6 +14,10 @@ function getPuppeteerConfig() {
   const isRender = process.env.RENDER === "true";
 
   if (isRender) {
+    // Generamos un ID único por ejecución para el perfil de Chrome
+    // Esto evita el error de "Profile in use" si el anterior no cerró bien
+    const execId = Date.now(); 
+    
     return {
       headless: true,
       args: [
@@ -24,8 +27,8 @@ function getPuppeteerConfig() {
         '--disable-gpu',
         '--no-zygote',
         '--single-process',
-        // Esto evita el error de "Profile in use" creando un perfil único
-        '--user-data-dir=/var/data/chrome-profile' 
+        // Usamos una subcarpeta con el ID del proceso para el perfil
+        `--user-data-dir=/var/data/chrome-profiles/${execId}` 
       ]
     };
   }
@@ -133,7 +136,6 @@ function crearCliente(nombre, promptPersonalizado) {
   const client = new Client({
     authStrategy: new LocalAuth({
       clientId: nombre,
-      // Usamos subcarpetas separadas para no mezclar sesiones de distintos bots
       dataPath: process.env.RENDER ? `/var/data/.wwebjs_auth/${nombre}` : `./.wwebjs_auth/${nombre}`
     }),
     puppeteer: getPuppeteerConfig()
@@ -152,7 +154,6 @@ function crearCliente(nombre, promptPersonalizado) {
 
       let texto = message.body || "";
 
-      // 🎤 PROCESAR AUDIO
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         const media = await message.downloadMedia();
         const buffer = Buffer.from(media.data, 'base64');
@@ -173,17 +174,10 @@ function crearCliente(nombre, promptPersonalizado) {
       if (!texto || texto.trim() === "") return;
       const textoLower = texto.toLowerCase().trim();
 
-      // Buscar o crear conversación
       let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
       if (!conv) {
-        conv = { 
-          telefono: message.from, 
-          estado: "inicio", 
-          botId: nombre, 
-          historial: [] 
-        };
+        conv = { telefono: message.from, estado: "inicio", botId: nombre, historial: [] };
         await conversaciones.insertOne(conv);
-        
         if (nombre === "inmobiliaria") {
           const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto el enlace donde puede ver el *Brochure 2026*: http://bit.ly/4trNVVr\n\n¿En qué zona se encuentra el terreno?`;
           await conversaciones.updateOne({ _id: conv._id }, { $push: { historial: { role: "assistant", content: saludoInmo } } });
@@ -191,7 +185,6 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      // Reapertura
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
@@ -200,7 +193,6 @@ function crearCliente(nombre, promptPersonalizado) {
 
       const esPalabraNeutra = ["bueno", "dale", "ok", "listo", "perfecto", "dale dale"].includes(textoLower);
 
-      // 1. ESTADO: PENDIENTE CONFIRMACIÓN (SI/NO)
       if (conv.estado === "pendiente_confirmacion") {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
           await reservas.insertOne({
@@ -219,7 +211,6 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      // 2. ESTADO: ESPERANDO HORARIO
       if (conv.estado === "esperando_horario") {
         const resultado = parsearFechaTurno(textoLower);
         if (resultado && resultado.horaDetectada) {
@@ -238,16 +229,12 @@ function crearCliente(nombre, promptPersonalizado) {
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: fechaFinal } });
           return message.reply(`¿Confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`);
         }
-        if (esPalabraNeutra) {
-          return message.reply("¡Buenísimo! ¿A qué hora te anoto? (Atendemos de 7 a 18 hs)");
-        }
+        if (esPalabraNeutra) return message.reply("¡Buenísimo! ¿A qué hora te anoto? (Atendemos de 7 a 18 hs)");
       }
 
-      // 3. DETECCIÓN INICIAL DE RESERVA
       if (!esPalabraNeutra) {
         const palabrasReserva = ["turno", "reserva", "disponible", "ir", "voy", "pasar", "agendar", "sacar", "reservar"];
         const textoReservaFuerte = /reservar|sacar turno|confirmar|puede ser|ir a|visitar|mañana|hoy|hs|se puede|horario|a las/.test(textoLower);
-        
         if (palabrasReserva.some(p => textoLower.includes(p)) || textoReservaFuerte) {
             const resultado = parsearFechaTurno(textoLower);
             if (resultado.fecha && resultado.horaDetectada && resultado.diaDetectado) {
@@ -267,48 +254,30 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      // 4. LÓGICA DE CIERRE
       if (palabrasCierre.some(p => textoLower === p || (textoLower.length < 10 && textoLower.includes(p)))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
         return message.reply("¡De nada! 😊 Si necesitás algo más, avisame.");
       }
 
-      // 5. IA CON MEMORIA PERSISTENTE
       if (conv.estado === "cerrada") return;
 
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
       const historialChat = convActualizada.historial || [];
 
       const completion = await groq.chat.completions.create({
-        messages: [
-          { role: "system", content: promptPersonalizado },
-          ...historialChat.slice(-8), 
-          { role: "user", content: texto }
-        ],
+        messages: [{ role: "system", content: promptPersonalizado }, ...historialChat.slice(-8), { role: "user", content: texto }],
         model: "llama-3.1-8b-instant"
       });
 
       const respuestaIA = completion.choices[0].message.content;
 
-      await conversaciones.updateOne(
-        { _id: conv._id },
-        { 
-          $push: { 
-            historial: { 
-              $each: [
-                { role: "user", content: texto }, 
-                { role: "assistant", content: respuestaIA }
-              ], 
-              $slice: -20 
-            } 
-          } 
-        }
-      );
+      await conversaciones.updateOne({ _id: conv._id }, { 
+        $push: { historial: { $each: [{ role: "user", content: texto }, { role: "assistant", content: respuestaIA }], $slice: -20 } } 
+      });
 
       if (["teléfono", "email", "@", ".com"].some(p => respuestaIA.toLowerCase().includes(p))) {
         return message.reply("Dejanos tu consulta y te respondemos a la brevedad");
       }
-      
       return message.reply(respuestaIA);
 
     } catch (err) {
@@ -319,5 +288,4 @@ function crearCliente(nombre, promptPersonalizado) {
   client.initialize();
 }
 
-//crearCliente("toronja", promptToronja);
 crearCliente("inmobiliaria", promptInmobiliaria);
