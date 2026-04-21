@@ -5,7 +5,7 @@ const { Client, LocalAuth } = pkg;
 import qrcode from "qrcode-terminal";
 import Groq from "groq-sdk";
 import { Readable } from "stream";
-import { promptToronja } from "./prompts/toronja.js";
+//import { promptToronja } from "./prompts/toronja.js";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
 
 // ==========================================
@@ -23,13 +23,7 @@ function getPuppeteerConfig() {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--single-process',
-        '--no-zygote',
-        '--disable-extensions',
-        '--disable-background-networking',
-        '--disable-background-timer-throttling',
-        '--disable-renderer-backgrounding',
-        '--memory-pressure-off'
+        '--single-process'
       ]
     };
   }
