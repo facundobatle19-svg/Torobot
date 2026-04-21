@@ -7,18 +7,17 @@ import Groq from "groq-sdk";
 import { Readable } from "stream";
 import { promptToronja } from "./prompts/toronja.js";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
-import fs from "fs"; // <-- Agregado para limpiar locks
-import path from "path"; // <-- Agregado para rutas de archivos
 
 // ==========================================
-// 🌐 CONFIG PUPPETEER (Optimizado para RAM)
+// 🌐 CONFIG PUPPETEER
 // ==========================================
 function getPuppeteerConfig() {
   const isRender = process.env.RENDER === "true";
 
   if (isRender) {
     return {
-      headless: "new",
+      headless: true,
+      // NO pongas executablePath aquí, Puppeteer lo detecta por el .puppeteerrc.cjs
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -27,11 +26,15 @@ function getPuppeteerConfig() {
         '--single-process',
         '--no-zygote',
         '--disable-extensions',
-        '--js-flags="--max-old-space-size=256"'
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--memory-pressure-off'
       ]
     };
   }
 
+  // Local (Mac)
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
@@ -131,22 +134,6 @@ const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta l
 // 📱 FÁBRICA DE BOTS
 // ==========================================
 function crearCliente(nombre, promptPersonalizado) {
-  // --- LÓGICA ANTI-LOCK PARA RENDER ---
-  const sessionPath = process.env.RENDER 
-    ? `/var/data/.wwebjs_auth/session-${nombre}` 
-    : `./.wwebjs_auth/session-${nombre}`;
-
-  try {
-    const lockPath = path.join(sessionPath, 'Default', 'SingletonLock');
-    if (fs.existsSync(lockPath)) {
-      fs.unlinkSync(lockPath);
-      console.log(`🔓 Lock de Chromium eliminado para ${nombre}`);
-    }
-  } catch (err) {
-    // Si no existe o no se puede borrar, ignoramos para no frenar el inicio
-  }
-  // ------------------------------------
-
   const client = new Client({
     authStrategy: new LocalAuth({
       clientId: nombre,
@@ -160,23 +147,7 @@ function crearCliente(nombre, promptPersonalizado) {
     qrcode.generate(qr, { small: true });
   });
 
-  client.on("ready", async () => {
-    console.log(`✅ WhatsApp ${nombre} conectado 🚀`);
-    
-    // Bloqueo de recursos pesados para ahorrar RAM
-    const page = client.pupPage;
-    if (page) {
-      await page.setRequestInterception(true);
-      page.on('request', (request) => {
-        const resourceType = request.resourceType();
-        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
-          request.abort();
-        } else {
-          request.continue();
-        }
-      });
-    }
-  });
+  client.on("ready", () => console.log(`✅ WhatsApp ${nombre} conectado 🚀`));
 
   client.on("message", async (message) => {
     try {
@@ -184,7 +155,7 @@ function crearCliente(nombre, promptPersonalizado) {
 
       let texto = message.body || "";
 
-      // 🎤 PROCESAR AUDIO (Whisper)
+      // 🎤 PROCESAR AUDIO
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         const media = await message.downloadMedia();
         const buffer = Buffer.from(media.data, 'base64');
@@ -205,6 +176,7 @@ function crearCliente(nombre, promptPersonalizado) {
       if (!texto || texto.trim() === "") return;
       const textoLower = texto.toLowerCase().trim();
 
+      // Buscar o crear conversación
       let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
       if (!conv) {
         conv = { 
@@ -222,6 +194,7 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
+      // Reapertura
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
@@ -230,6 +203,7 @@ function crearCliente(nombre, promptPersonalizado) {
 
       const esPalabraNeutra = ["bueno", "dale", "ok", "listo", "perfecto", "dale dale"].includes(textoLower);
 
+      // 1. ESTADO: PENDIENTE CONFIRMACIÓN (SI/NO)
       if (conv.estado === "pendiente_confirmacion") {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
           await reservas.insertOne({
@@ -248,6 +222,7 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
+      // 2. ESTADO: ESPERANDO HORARIO
       if (conv.estado === "esperando_horario") {
         const resultado = parsearFechaTurno(textoLower);
         if (resultado && resultado.horaDetectada) {
@@ -271,6 +246,7 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
+      // 3. DETECCIÓN INICIAL DE RESERVA (Ignora si es solo "bueno" o "dale")
       if (!esPalabraNeutra) {
         const palabrasReserva = ["turno", "reserva", "disponible", "ir", "voy", "pasar", "agendar", "sacar", "reservar"];
         const textoReservaFuerte = /reservar|sacar turno|confirmar|puede ser|ir a|visitar|mañana|hoy|hs|se puede|horario|a las/.test(textoLower);
@@ -294,11 +270,13 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
+      // 4. LÓGICA DE CIERRE
       if (palabrasCierre.some(p => textoLower === p || (textoLower.length < 10 && textoLower.includes(p)))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
         return message.reply("¡De nada! 😊 Si necesitás algo más, avisame.");
       }
 
+      // 5. IA CON MEMORIA PERSISTENTE
       if (conv.estado === "cerrada") return;
 
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
@@ -307,7 +285,7 @@ function crearCliente(nombre, promptPersonalizado) {
       const completion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: promptPersonalizado },
-          ...historialChat.slice(-6), // Enviamos los últimos 6 mensajes para ahorrar RAM
+          ...historialChat.slice(-8), // Enviamos los últimos 8 mensajes para contexto total
           { role: "user", content: texto }
         ],
         model: "llama-3.1-8b-instant"
@@ -315,6 +293,7 @@ function crearCliente(nombre, promptPersonalizado) {
 
       const respuestaIA = completion.choices[0].message.content;
 
+      // ACTUALIZACIÓN DE HISTORIAL (Guardamos la dupla pregunta-respuesta)
       await conversaciones.updateOne(
         { _id: conv._id },
         { 
@@ -324,12 +303,13 @@ function crearCliente(nombre, promptPersonalizado) {
                 { role: "user", content: texto }, 
                 { role: "assistant", content: respuestaIA }
               ], 
-              $slice: -20 
+              $slice: -20 // Memoria de 20 mensajes
             } 
           } 
         }
       );
 
+      // Respuesta especial para datos de contacto
       if (["teléfono", "email", "@", ".com"].some(p => respuestaIA.toLowerCase().includes(p))) {
         return message.reply("Dejanos tu consulta y te respondemos a la brevedad");
       }
@@ -344,5 +324,5 @@ function crearCliente(nombre, promptPersonalizado) {
   client.initialize();
 }
 
-// crearCliente("toronja", promptToronja);
+//crearCliente("toronja", promptToronja);
 crearCliente("inmobiliaria", promptInmobiliaria);
