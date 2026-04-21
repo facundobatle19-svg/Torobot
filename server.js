@@ -27,7 +27,7 @@ function getPuppeteerConfig() {
   if (isRender) {
     return {
       headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
+      // ELIMINAMOS la ruta fija y dejamos que puppeteer use el que instaló en el build
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -41,6 +41,7 @@ function getPuppeteerConfig() {
     };
   }
 
+  // Local (Mac)
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
