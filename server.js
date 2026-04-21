@@ -17,13 +17,15 @@ function getPuppeteerConfig() {
   if (isRender) {
     return {
       headless: true,
-      // NO pongas executablePath aquí, Puppeteer lo detecta por el .puppeteerrc.cjs
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--single-process'
+        '--no-zygote',
+        '--single-process',
+        // Esto evita el error de "Profile in use" creando un perfil único
+        '--user-data-dir=/var/data/chrome-profile' 
       ]
     };
   }
@@ -131,7 +133,8 @@ function crearCliente(nombre, promptPersonalizado) {
   const client = new Client({
     authStrategy: new LocalAuth({
       clientId: nombre,
-      dataPath: process.env.RENDER ? '/var/data/.wwebjs_auth' : './.wwebjs_auth'
+      // Usamos subcarpetas separadas para no mezclar sesiones de distintos bots
+      dataPath: process.env.RENDER ? `/var/data/.wwebjs_auth/${nombre}` : `./.wwebjs_auth/${nombre}`
     }),
     puppeteer: getPuppeteerConfig()
   });
@@ -240,7 +243,7 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      // 3. DETECCIÓN INICIAL DE RESERVA (Ignora si es solo "bueno" o "dale")
+      // 3. DETECCIÓN INICIAL DE RESERVA
       if (!esPalabraNeutra) {
         const palabrasReserva = ["turno", "reserva", "disponible", "ir", "voy", "pasar", "agendar", "sacar", "reservar"];
         const textoReservaFuerte = /reservar|sacar turno|confirmar|puede ser|ir a|visitar|mañana|hoy|hs|se puede|horario|a las/.test(textoLower);
@@ -279,7 +282,7 @@ function crearCliente(nombre, promptPersonalizado) {
       const completion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: promptPersonalizado },
-          ...historialChat.slice(-8), // Enviamos los últimos 8 mensajes para contexto total
+          ...historialChat.slice(-8), 
           { role: "user", content: texto }
         ],
         model: "llama-3.1-8b-instant"
@@ -287,7 +290,6 @@ function crearCliente(nombre, promptPersonalizado) {
 
       const respuestaIA = completion.choices[0].message.content;
 
-      // ACTUALIZACIÓN DE HISTORIAL (Guardamos la dupla pregunta-respuesta)
       await conversaciones.updateOne(
         { _id: conv._id },
         { 
@@ -297,13 +299,12 @@ function crearCliente(nombre, promptPersonalizado) {
                 { role: "user", content: texto }, 
                 { role: "assistant", content: respuestaIA }
               ], 
-              $slice: -20 // Memoria de 20 mensajes
+              $slice: -20 
             } 
           } 
         }
       );
 
-      // Respuesta especial para datos de contacto
       if (["teléfono", "email", "@", ".com"].some(p => respuestaIA.toLowerCase().includes(p))) {
         return message.reply("Dejanos tu consulta y te respondemos a la brevedad");
       }
