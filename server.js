@@ -18,17 +18,18 @@ function getPuppeteerConfig() {
   if (isRender) {
     return {
       headless: true,
-      // Eliminamos executablePath para que use el que Puppeteer instala por defecto
+      // NO pongas executablePath aquí, Puppeteer lo detecta por el .puppeteerrc.cjs
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--single-process' // Agregamos esto para ahorrar memoria en Render
+        '--single-process'
       ]
     };
   }
 
+  // Local (Mac)
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
