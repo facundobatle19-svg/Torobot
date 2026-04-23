@@ -8,6 +8,7 @@ import { Readable } from "stream";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
 import express from "express";
 import fs from "fs";
+import { execSync } from "child_process"; // Para limpiar locks
 
 // ==========================================
 // 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
@@ -53,7 +54,7 @@ console.log("Conectado a MongoDB ✅");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ==========================================
-// 🧠 PARSER DE FECHAS
+// 🧠 PARSER DE FECHAS (Tu lógica actual)
 // ==========================================
 function parsearFechaTurno(texto) {
   const ahora = new Date();
@@ -125,13 +126,22 @@ function parsearFechaTurno(texto) {
 const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya"];
 
 // ==========================================
-// 📱 FÁBRICA DE BOTS
+// 📱 FÁBRICA DE BOTS (CORREGIDA PARA PERSISTENCIA)
 // ==========================================
-function crearCliente(nombre, promptPersonalizado) {
-  // AJUSTE DE RUTA: Apuntamos a la raíz del volumen. 
-  // LocalAuth creará carpetas tipo 'session-inmobiliaria' dentro de /var/data
-  const dataPath = process.env.RENDER === "true" ? "/var/data" : "./.wwebjs_auth";
-  
+async function crearCliente(nombre, promptPersonalizado) {
+  const isRender = process.env.RENDER === "true";
+  const dataPath = isRender ? "/var/data" : "./.wwebjs_auth";
+
+  // 1. Limpieza interna de locks antes de arrancar
+  if (isRender) {
+    try {
+      console.log("🧹 Limpiando bloqueos de Chrome en Render...");
+      execSync("rm -rf /var/data/chrome-profile/SingletonLock");
+    } catch (e) {
+      // Si no existe, no pasa nada
+    }
+  }
+
   if (!fs.existsSync(dataPath)) {
     fs.mkdirSync(dataPath, { recursive: true });
   }
@@ -151,13 +161,13 @@ function crearCliente(nombre, promptPersonalizado) {
 
   client.on("ready", () => console.log(`✅ WhatsApp ${nombre} conectado 🚀`));
 
+  // Lógica de mensajes (se mantiene igual)
   client.on("message", async (message) => {
     try {
       if (message.fromMe || message.from.includes("@g.us") || message.from === 'status@broadcast') return;
 
       let texto = message.body || "";
 
-      // Procesamiento de Audio
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         try {
           const media = await message.downloadMedia();
@@ -297,7 +307,12 @@ function crearCliente(nombre, promptPersonalizado) {
     }
   });
 
-  client.initialize();
+  // 2. RETRASO CRÍTICO: Esperamos a que el disco persistente esté listo
+  console.log(`⏳ Esperando 5s para que el disco de ${nombre} se estabilice...`);
+  setTimeout(() => {
+    console.log(`🚀 Iniciando cliente ${nombre}...`);
+    client.initialize();
+  }, 5000);
 }
 
 crearCliente("inmobiliaria", promptInmobiliaria);
