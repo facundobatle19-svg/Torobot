@@ -6,8 +6,8 @@ import qrcode from "qrcode-terminal";
 import Groq from "groq-sdk";
 import { Readable } from "stream";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
-import express from "express"; // <-- Agregado
-import fs from "fs"; // <-- Agregado
+import express from "express";
+import fs from "fs";
 
 // ==========================================
 // 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
@@ -128,9 +128,13 @@ const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta l
 // 📱 FÁBRICA DE BOTS
 // ==========================================
 function crearCliente(nombre, promptPersonalizado) {
-  // Asegurar carpeta de persistencia
-  const dataPath = process.env.RENDER === "true" ? `/var/data/.wwebjs_auth` : `./.wwebjs_auth`;
-  if (!fs.existsSync(dataPath)) fs.mkdirSync(dataPath, { recursive: true });
+  // AJUSTE DE RUTA: Apuntamos a la raíz del volumen. 
+  // LocalAuth creará carpetas tipo 'session-inmobiliaria' dentro de /var/data
+  const dataPath = process.env.RENDER === "true" ? "/var/data" : "./.wwebjs_auth";
+  
+  if (!fs.existsSync(dataPath)) {
+    fs.mkdirSync(dataPath, { recursive: true });
+  }
 
   const client = new Client({
     authStrategy: new LocalAuth({
@@ -193,7 +197,6 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      // Lógica de estados y IA (Igual a la tuya)
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
