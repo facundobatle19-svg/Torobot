@@ -9,13 +9,37 @@ import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
 import express from "express";
 import fs from "fs";
 import { execSync } from "child_process";
+import cors from "cors";
 
 // ==========================================
 // 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
 // ==========================================
 const app = express();
+
+app.use(cors());
+
+
 const port = process.env.PORT || 10000;
 app.get('/', (req, res) => res.send('TOROBOT ONLINE 🚀'));
+app.get("/datos", async (req, res) => {
+  try {
+    const data = await reservas.find().sort({ fechaSolicitud: -1 }).limit(50).toArray();
+
+    // Formateamos para que coincida con tu HTML
+    const datosFormateados = data.map(r => ({
+      fecha: new Date(r.fechaSolicitud).toLocaleDateString("es-AR"),
+      cliente: r.telefono,
+      consulta: "Reserva de turno",
+      estado: r.estado
+    }));
+
+    res.json(datosFormateados);
+
+  } catch (error) {
+    console.error("❌ Error en /datos:", error);
+    res.status(500).json({ error: "Error al obtener datos" });
+  }
+});
 app.listen(port, '0.0.0.0', () => console.log(`🌍 Server listening on port ${port}`));
 
 // ==========================================
