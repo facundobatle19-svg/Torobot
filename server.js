@@ -6,29 +6,33 @@ import qrcode from "qrcode-terminal";
 import Groq from "groq-sdk";
 import { Readable } from "stream";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
+import express from "express"; // <-- Agregado
+import fs from "fs"; // <-- Agregado
+
+// ==========================================
+// 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
+// ==========================================
+const app = express();
+const port = process.env.PORT || 10000;
+app.get('/', (req, res) => res.send('TOROBOT ONLINE 🚀'));
+app.listen(port, '0.0.0.0', () => console.log(`🌍 Server listening on port ${port}`));
 
 // ==========================================
 // 🌐 CONFIG PUPPETEER
 // ==========================================
 function getPuppeteerConfig() {
   const isRender = process.env.RENDER === "true";
-
   if (isRender) {
     const execId = Date.now(); 
     return {
       headless: true,
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-zygote',
-        '--single-process',
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+        '--disable-gpu', '--no-zygote', '--single-process',
         `--user-data-dir=/var/data/chrome-profiles/${execId}` 
       ]
     };
   }
-
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
@@ -40,17 +44,13 @@ function getPuppeteerConfig() {
 const uri = process.env.MONGO_URI;
 const clientDB = new MongoClient(uri);
 await clientDB.connect();
-
 const db = clientDB.db("coworking");
 const reservas = db.collection("reservas");
 const conversaciones = db.collection("conversaciones");
-
 console.log("Conectado a MongoDB ✅");
 
 // 🤖 IA
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ==========================================
 // 🧠 PARSER DE FECHAS
@@ -128,10 +128,14 @@ const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta l
 // 📱 FÁBRICA DE BOTS
 // ==========================================
 function crearCliente(nombre, promptPersonalizado) {
+  // Asegurar carpeta de persistencia
+  const dataPath = process.env.RENDER === "true" ? `/var/data/.wwebjs_auth` : `./.wwebjs_auth`;
+  if (!fs.existsSync(dataPath)) fs.mkdirSync(dataPath, { recursive: true });
+
   const client = new Client({
     authStrategy: new LocalAuth({
       clientId: nombre,
-      dataPath: process.env.RENDER ? `/var/data/.wwebjs_auth/${nombre}` : `./.wwebjs_auth/${nombre}`
+      dataPath: dataPath
     }),
     puppeteer: getPuppeteerConfig()
   });
@@ -149,30 +153,25 @@ function crearCliente(nombre, promptPersonalizado) {
 
       let texto = message.body || "";
 
-      // --- SECCIÓN CORREGIDA: PROCESAMIENTO DE AUDIO ---
+      // Procesamiento de Audio
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         try {
           const media = await message.downloadMedia();
           if (media && media.data) {
             const buffer = Buffer.from(media.data, 'base64');
-            
-            // Creamos el stream y le asignamos un nombre de archivo ficticio para que Groq sepa el formato
             const stream = Readable.from(buffer);
             stream.path = "audio.ogg"; 
-
             const transcription = await groq.audio.transcriptions.create({
               file: stream,
               model: "whisper-large-v3",
               language: "es",
             });
-            
             texto = transcription.text;
             console.log(`🎙️ Audio transcripto (${nombre}): ${texto}`);
           }
         } catch (audioErr) {
-          console.error(`❌ Error transcribiendo audio en ${nombre}:`, audioErr);
-          // Si falla el audio, avisamos pero no cortamos el flujo por si quiere intentar texto
-          return message.reply("No pude procesar el audio, ¿podrías escribirme lo que necesitas? ✍️");
+          console.error(`❌ Error audio:`, audioErr);
+          return message.reply("No pude entender el audio, ¿me lo transcribís? ✍️");
         }
       }
 
@@ -194,6 +193,7 @@ function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
+      // Lógica de estados y IA (Igual a la tuya)
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
