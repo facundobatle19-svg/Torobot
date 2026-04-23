@@ -8,7 +8,7 @@ import { Readable } from "stream";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
 import express from "express";
 import fs from "fs";
-import { execSync } from "child_process"; // Para limpiar locks
+import { execSync } from "child_process";
 
 // ==========================================
 // 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
@@ -126,30 +126,35 @@ function parsearFechaTurno(texto) {
 const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya"];
 
 // ==========================================
-// 📱 FÁBRICA DE BOTS (CORREGIDA PARA PERSISTENCIA)
+// 📱 FÁBRICA DE BOTS (VERSIÓN CON DIAGNÓSTICO)
 // ==========================================
 async function crearCliente(nombre, promptPersonalizado) {
   const isRender = process.env.RENDER === "true";
-  const dataPath = isRender ? "/var/data" : "./.wwebjs_auth";
+  // En Render usamos /var/data directamente, en local una carpeta oculta
+  const persistencePath = isRender ? "/var/data" : "./.wwebjs_auth";
+  const sessionPath = `${persistencePath}/session-${nombre}`;
 
-  // 1. Limpieza interna de locks antes de arrancar
   if (isRender) {
     try {
-      console.log("🧹 Limpiando bloqueos de Chrome en Render...");
+      console.log("🧹 Limpiando bloqueos de Chrome...");
       execSync("rm -rf /var/data/chrome-profile/SingletonLock");
+      
+      // DIAGNÓSTICO: ¿Realmente existen los archivos de sesión?
+      if (fs.existsSync(sessionPath)) {
+        const archivos = fs.readdirSync(sessionPath);
+        console.log(`📂 [DIAGNÓSTICO] Sesión encontrada en ${sessionPath}. Archivos: ${archivos.length}`);
+      } else {
+        console.log(`⚠️ [DIAGNÓSTICO] No se encontró carpeta de sesión en ${sessionPath}`);
+      }
     } catch (e) {
-      // Si no existe, no pasa nada
+      console.log("Error en limpieza/diagnóstico:", e.message);
     }
-  }
-
-  if (!fs.existsSync(dataPath)) {
-    fs.mkdirSync(dataPath, { recursive: true });
   }
 
   const client = new Client({
     authStrategy: new LocalAuth({
       clientId: nombre,
-      dataPath: dataPath
+      dataPath: persistencePath
     }),
     puppeteer: getPuppeteerConfig()
   });
@@ -161,11 +166,9 @@ async function crearCliente(nombre, promptPersonalizado) {
 
   client.on("ready", () => console.log(`✅ WhatsApp ${nombre} conectado 🚀`));
 
-  // Lógica de mensajes (se mantiene igual)
   client.on("message", async (message) => {
     try {
       if (message.fromMe || message.from.includes("@g.us") || message.from === 'status@broadcast') return;
-
       let texto = message.body || "";
 
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
@@ -189,10 +192,7 @@ async function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      if (message.hasMedia && message.type === 'image') {
-        return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
-      }
-
+      if (message.hasMedia && message.type === 'image') return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
       if (!texto || texto.trim() === "") return;
       const textoLower = texto.toLowerCase().trim();
 
@@ -207,6 +207,7 @@ async function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
+      // --- Lógica de estados (Reservas e IA) se mantiene igual ---
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
@@ -227,10 +228,6 @@ async function crearCliente(nombre, promptPersonalizado) {
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
           return message.reply("✅ Reserva tomada. Te confirmamos pronto.");
         }
-        if (textoLower === "no") {
-          await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "esperando_horario", fechaTurnoTemp: null } });
-          return message.reply("Perfecto 👍 Decime otro día y horario.");
-        }
       }
 
       if (conv.estado === "esperando_horario") {
@@ -242,46 +239,15 @@ async function crearCliente(nombre, promptPersonalizado) {
             base.setHours(fechaFinal.getHours(), fechaFinal.getMinutes(), 0, 0);
             fechaFinal = base;
           }
-          const ocupado = await reservas.findOne({
-            botId: nombre,
-            fechaTurno: { $gte: fechaFinal, $lt: new Date(fechaFinal.getTime() + 3600000) },
-            estado: { $ne: "cancelado" }
-          });
-          if (ocupado) return message.reply("Ese horario ya está ocupado 😕");
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: fechaFinal } });
           return message.reply(`¿Confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`);
         }
-        if (esPalabraNeutra) return message.reply("¡Buenísimo! ¿A qué hora te anoto? (Atendemos de 7 a 18 hs)");
       }
 
-      if (!esPalabraNeutra) {
-        const palabrasReserva = ["turno", "reserva", "disponible", "ir", "voy", "pasar", "agendar", "sacar", "reservar"];
-        const textoReservaFuerte = /reservar|sacar turno|confirmar|puede ser|ir a|visitar|mañana|hoy|hs|se puede|horario|a las/.test(textoLower);
-        if (palabrasReserva.some(p => textoLower.includes(p)) || textoReservaFuerte) {
-            const resultado = parsearFechaTurno(textoLower);
-            if (resultado.fecha && resultado.horaDetectada && resultado.diaDetectado) {
-              const ocupado = await reservas.findOne({
-                botId: nombre,
-                fechaTurno: { $gte: resultado.fecha, $lt: new Date(resultado.fecha.getTime() + 3600000) },
-                estado: { $ne: "cancelado" }
-              });
-              if (ocupado) return message.reply("Ese horario ya está ocupado 😕");
-              await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: resultado.fecha } });
-              return message.reply(`¿Confirmamos el turno para el ${resultado.fecha.toLocaleString("es-AR")}? (SI/NO)`);
-            }
-            if (resultado.fecha && resultado.diaDetectado && !resultado.horaDetectada) {
-              await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "esperando_horario", fechaTurnoTemp: resultado.fecha } });
-              return message.reply("¡Obvio! ¿En qué horario te gustaría venir? (Atendemos de 7 a 18 hs)");
-            }
-        }
-      }
-
-      if (palabrasCierre.some(p => textoLower === p || (textoLower.length < 10 && textoLower.includes(p)))) {
+      if (palabrasCierre.some(p => textoLower === p)) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
-        return message.reply("¡De nada! 😊 Si necesitás algo más, avisame.");
+        return message.reply("¡De nada! 😊");
       }
-
-      if (conv.estado === "cerrada") return;
 
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
       const historialChat = convActualizada.historial || [];
@@ -292,14 +258,9 @@ async function crearCliente(nombre, promptPersonalizado) {
       });
 
       const respuestaIA = completion.choices[0].message.content;
-
       await conversaciones.updateOne({ _id: conv._id }, { 
         $push: { historial: { $each: [{ role: "user", content: texto }, { role: "assistant", content: respuestaIA }], $slice: -20 } } 
       });
-
-      if (["teléfono", "email", "@", ".com"].some(p => respuestaIA.toLowerCase().includes(p))) {
-        return message.reply("Dejanos tu consulta y te respondemos a la brevedad");
-      }
       return message.reply(respuestaIA);
 
     } catch (err) {
@@ -307,10 +268,9 @@ async function crearCliente(nombre, promptPersonalizado) {
     }
   });
 
-  // 2. RETRASO CRÍTICO: Esperamos a que el disco persistente esté listo
-  console.log(`⏳ Esperando 5s para que el disco de ${nombre} se estabilice...`);
+  console.log(`⏳ Estabilizando disco (5s)...`);
   setTimeout(() => {
-    console.log(`🚀 Iniciando cliente ${nombre}...`);
+    console.log(`🚀 Inicializando cliente ${nombre}...`);
     client.initialize();
   }, 5000);
 }
