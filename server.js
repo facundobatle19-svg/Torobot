@@ -24,13 +24,15 @@ app.listen(port, '0.0.0.0', () => console.log(`🌍 Server listening on port ${p
 function getPuppeteerConfig() {
   const isRender = process.env.RENDER === "true";
   if (isRender) {
-    const execId = Date.now(); 
     return {
       headless: true,
       args: [
-        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-        '--disable-gpu', '--no-zygote', '--single-process',
-        `--user-data-dir=/var/data/chrome-profiles/${execId}` 
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-dev-shm-usage',
+        '--disable-gpu', 
+        '--no-zygote', 
+        '--single-process'
       ]
     };
   }
@@ -54,7 +56,7 @@ console.log("Conectado a MongoDB ✅");
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ==========================================
-// 🧠 PARSER DE FECHAS (Tu lógica actual)
+// 🧠 PARSER DE FECHAS
 // ==========================================
 function parsearFechaTurno(texto) {
   const ahora = new Date();
@@ -126,20 +128,23 @@ function parsearFechaTurno(texto) {
 const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya"];
 
 // ==========================================
-// 📱 FÁBRICA DE BOTS (VERSIÓN CON DIAGNÓSTICO)
+// 📱 FÁBRICA DE BOTS (VERSIÓN BLINDADA)
 // ==========================================
 async function crearCliente(nombre, promptPersonalizado) {
   const isRender = process.env.RENDER === "true";
-  // En Render usamos /var/data directamente, en local una carpeta oculta
   const persistencePath = isRender ? "/var/data" : "./.wwebjs_auth";
   const sessionPath = `${persistencePath}/session-${nombre}`;
 
   if (isRender) {
     try {
       console.log("🧹 Limpiando bloqueos de Chrome...");
+      // Limpiamos el lock tanto en el perfil general como en la sesión específica
       execSync("rm -rf /var/data/chrome-profile/SingletonLock");
+      if (fs.existsSync(`${sessionPath}/SingletonLock`)) {
+        execSync(`rm -rf ${sessionPath}/SingletonLock`);
+      }
       
-      // DIAGNÓSTICO: ¿Realmente existen los archivos de sesión?
+      // DIAGNÓSTICO
       if (fs.existsSync(sessionPath)) {
         const archivos = fs.readdirSync(sessionPath);
         console.log(`📂 [DIAGNÓSTICO] Sesión encontrada en ${sessionPath}. Archivos: ${archivos.length}`);
@@ -149,6 +154,11 @@ async function crearCliente(nombre, promptPersonalizado) {
     } catch (e) {
       console.log("Error en limpieza/diagnóstico:", e.message);
     }
+  }
+
+  // Aseguramos que la ruta base exista
+  if (!fs.existsSync(persistencePath)) {
+    fs.mkdirSync(persistencePath, { recursive: true });
   }
 
   const client = new Client({
@@ -207,15 +217,14 @@ async function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      // --- Lógica de estados (Reservas e IA) se mantiene igual ---
+      // Re-apertura de conversación
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
         conv.estado = "inicio";
       }
 
-      const esPalabraNeutra = ["bueno", "dale", "ok", "listo", "perfecto", "dale dale"].includes(textoLower);
-
+      // Lógica de reservas y estados
       if (conv.estado === "pendiente_confirmacion") {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
           await reservas.insertOne({
@@ -249,6 +258,7 @@ async function crearCliente(nombre, promptPersonalizado) {
         return message.reply("¡De nada! 😊");
       }
 
+      // Respuesta de IA
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
       const historialChat = convActualizada.historial || [];
 
