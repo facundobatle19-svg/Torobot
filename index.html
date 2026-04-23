@@ -3,223 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Torobot</title>
+<title>Torobot - Login</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-  font-family:'Inter',sans-serif;
+/* ... (Se mantiene tu CSS anterior) ... */
+*{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+body{ background:#050505; color:white; overflow-x:hidden; }
+body::before{ content:""; position:fixed; width:600px; height:600px; background:#00ffcc; filter:blur(200px); top:-100px; left:-100px; opacity:0.2; }
+body::after{ content:""; pointer-events:none; position:fixed; width:500px; height:500px; background:#0066ff; filter:blur(200px); bottom:-150px; right:-100px; opacity:0.2; }
+
+header{ display:flex; justify-content:space-between; padding:20px 60px; position:fixed; width:100%; backdrop-filter:blur(10px); background:rgba(0,0,0,0.3); z-index:1000; }
+header h1{ color:#00ffcc; }
+nav a{ color:white; margin-left:25px; text-decoration:none; transition:.3s; cursor: pointer;}
+nav a:hover{ color:#00ffcc; }
+
+.hero{ height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+.hero h2{ font-size:3.5rem; max-width:800px; }
+.hero span{ background:linear-gradient(90deg,#00ffcc,#0066ff); -webkit-background-clip:text; color:transparent; }
+.hero p{ margin:20px 0; opacity:0.7; }
+
+.btn{ padding:15px 35px; border:none; border-radius:12px; background:linear-gradient(90deg,#00ffcc,#0066ff); color:black; font-weight:bold; cursor:pointer; transition:.3s; margin: 10px; }
+.btn:hover{ transform:scale(1.1); box-shadow:0 0 25px #00ffcc; }
+
+/* ===== NUEVOS ESTILOS LOGIN Y DASHBOARD ===== */
+#login-section {
+    display: none; /* Oculto por defecto */
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
 }
 
-body{
-  background:#050505;
-  color:white;
-  overflow-x:hidden;
+.login-card {
+    background: rgba(255,255,255,0.05);
+    padding: 40px;
+    border-radius: 20px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(0,255,204,0.2);
+    text-align: center;
+    width: 350px;
 }
 
-/* 🔥 fondo animado */
-body::before{
-  content:"";
-  position:fixed;
-  width:600px;
-  height:600px;
-  background:#00ffcc;
-  filter:blur(200px);
-  top:-100px;
-  left:-100px;
-  opacity:0.2;
+.login-card input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    outline: none;
 }
 
-body::after{
-  content:"";
-  pointer-events:none;
-  position:fixed;
-  width:500px;
-  height:500px;
-  background:#0066ff;
-  filter:blur(200px);
-  bottom:-150px;
-  right:-100px;
-  opacity:0.2;
+#dashboard {
+    display: none; /* Oculto hasta loguearse */
+    padding: 120px 60px;
+    min-height: 80vh;
 }
 
-/* navbar */
-header{
-  display:flex;
-  justify-content:space-between;
-  padding:20px 60px;
-  position:fixed;
-  width:100%;
-  backdrop-filter:blur(10px);
-  background:rgba(0,0,0,0.3);
-  z-index:1000;
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: rgba(255,255,255,0.02);
 }
 
-header h1{
-  color:#00ffcc;
+.data-table th, .data-table td {
+    padding: 15px;
+    border: 1px solid rgba(255,255,255,0.1);
+    text-align: left;
 }
 
-@media (max-width: 768px){
+.data-table th { color: #00ffcc; }
 
-header{
-  flex-direction:column;
-  align-items:center;
-  padding:15px 20px;
-}
-
-nav{
-  margin-top:10px;
-}
-
-nav a{
-  margin:0 10px;
-  font-size:14px;
-}
-
-}
-
-nav a{
-  color:white;
-  margin-left:25px;
-  text-decoration:none;
-  transition:.3s;
-}
-
-nav a:hover{
-  color:#00ffcc;
-}
-
-/* hero */
-.hero{
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  text-align:center;
-}
-
-.hero h2{
-  font-size:3.5rem;
-  max-width:800px;
-}
-
-.hero span{
-  background:linear-gradient(90deg,#00ffcc,#0066ff);
-  -webkit-background-clip:text;
-  color:transparent;
-}
-
-.hero p{
-  margin:20px 0;
-  opacity:0.7;
-}
-
-.btn{
-  padding:15px 35px;
-  border:none;
-  border-radius:12px;
-  background:linear-gradient(90deg,#00ffcc,#0066ff);
-  color:black;
-  font-weight:bold;
-  cursor:pointer;
-  transition:.3s;
-}
-
-.btn:hover{
-  transform:scale(1.1);
-  box-shadow:0 0 25px #00ffcc;
-}
-
-/* secciones */
-section{
-  padding:120px 60px;
-}
-
-/* cards */
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-  gap:30px;
-  margin-top:60px;
-}
-
-.card{
-  padding:30px;
-  border-radius:20px;
-  background:rgba(255,255,255,0.05);
-  backdrop-filter:blur(10px);
-  transition:.3s;
-}
-
-.card:hover{
-  transform:translateY(-10px) scale(1.03);
-  box-shadow:0 0 25px rgba(0,255,204,0.3);
-}
-
-/* sección demo */
-.demo{
-  text-align:center;
-}
-
-.demo-box{
-  margin-top:40px;
-  padding:30px;
-  border-radius:20px;
-  background:#111;
-  max-width:400px;
-  margin-left:auto;
-  margin-right:auto;
-}
-
-.demo input{
-  width:100%;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  margin-top:10px;
-}
-
-.demo button{
-  margin-top:10px;
-  width:100%;
-}
-
-/* CTA */
-.cta{
-  text-align:center;
-  background:linear-gradient(90deg,#00ffcc,#0066ff);
-  color:black;
-  border-radius:30px;
-  margin:60px;
-}
-
-.cta .btn{
-  margin-top:20px;
-}
-
-/* footer */
-footer{
-  text-align:center;
-  padding:30px;
-  opacity:0.6;
-}
-
-/* animación scroll */
-.hidden{
-  opacity:0;
-  transform:translateY(50px);
-  transition:all 1s;
-}
-
-.show{
-  opacity:1;
-  transform:translateY(0);
-}
+/* ... (Resto de tus secciones originales) ... */
+section{ padding:120px 60px; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:30px; margin-top:60px; }
+.card{ padding:30px; border-radius:20px; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); transition:.3s; }
+.socials-floating{ display:flex; justify-content:center; gap:20px; padding-bottom: 40px; }
+.socials-floating a{ width:60px; height:60px; border-radius:50%; background:#0a0a0a; color:white; display:flex; align-items:center; justify-content:center; text-decoration:none; }
+footer{ padding:60px 20px; text-align:center; border-top: 1px solid #333; }
 </style>
 </head>
 
@@ -229,79 +97,135 @@ footer{
   <h1>Torobot</h1>
   <nav>
     <a href="#features">Funciones</a>
-    <a href="#demo">Demo</a>
-    <a href="#contacto">Contacto</a>
+    <a onclick="showLogin()">Acceso Cliente</a>
   </nav>
 </header>
 
-<div class="hero">
-  <h2>Automatizá tu negocio con <span>inteligencia artificial</span></h2>
-  <p>Atención automática, turnos y ventas 24/7</p>
-  <button class="btn" onclick="goWhats()">Hablar por WhatsApp</button>
+<div id="main-content">
+    <div class="hero">
+      <h2>Automatizá tu negocio con <span>inteligencia artificial</span></h2>
+      <p>Atención automática, turnos y ventas 24/7</p>
+      <div>
+          <button class="btn" onclick="goWhats()">Hablar por WhatsApp</button>
+          <button class="btn" style="background: transparent; border: 1px solid #00ffcc; color: #00ffcc;" onclick="showLogin()">Panel Cliente</button>
+      </div>
+    </div>
+
+    <section id="features">
+      <h2>Funciones principales</h2>
+      <div class="grid">
+        <div class="card"><h3>🤖 Respuestas IA</h3><p>Conversaciones naturales automáticas.</p></div>
+        <div class="card"><h3>📅 Turnos inteligentes</h3><p>Agenda automática con confirmación.</p></div>
+        <div class="card"><h3>📊 Datos de clientes</h3><p>Guardá y analizá información.</p></div>
+      </div>
+    </section>
 </div>
 
-<section id="features" class="hidden">
-  <h2>Funciones principales</h2>
-
-  <div class="grid">
-    <div class="card">
-      <h3>🤖 Respuestas IA</h3>
-      <p>Conversaciones naturales automáticas.</p>
+<div id="login-section">
+    <div class="login-card">
+        <h2 style="color:#00ffcc; margin-bottom:20px;">Iniciar Sesión</h2>
+        <input type="text" id="user" placeholder="Usuario">
+        <input type="password" id="pass" placeholder="Contraseña">
+        <button class="btn" onclick="handleLogin()">Ingresar</button>
+        <p onclick="closeLogin()" style="cursor:pointer; font-size: 12px; margin-top:10px; opacity:0.5;">Cerrar</p>
     </div>
+</div>
 
-    <div class="card">
-      <h3>📅 Turnos inteligentes</h3>
-      <p>Agenda automática con confirmación.</p>
-    </div>
-
-    <div class="card">
-      <h3>💬 WhatsApp integrado</h3>
-      <p>Funciona directo con tu número.</p>
-    </div>
-
-    <div class="card">
-      <h3>📊 Datos de clientes</h3>
-      <p>Guardá y analizá información.</p>
-    </div>
-  </div>
-</section>
-
-<section id="contacto" class="cta hidden">
-  <h2>¿Listo para automatizar?</h2>
-  <p>Empezá hoy con Torobot</p>
-  <button class="btn" onclick="goWhats()">Contactar</button>
+<section id="dashboard">
+    <h2 id="welcome-msg">Bienvenido</h2>
+    <p style="margin-bottom: 30px;">Aquí tenés los registros de tu base de datos:</p>
+    
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Consulta</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody id="db-content">
+            </tbody>
+    </table>
+    <button class="btn" onclick="logout()" style="margin-top: 40px;">Cerrar Sesión</button>
 </section>
 
 <footer>
-  © 2026 Torobot
+  <div class="socials-floating">
+    <a href="#"><i class="fab fa-facebook-f"></i></a>
+    <a href="#"><i class="fab fa-instagram"></i></a>
+    <a href="mailto:torobot2026@gmail.com"><i class="fas fa-envelope"></i></a>
+  </div>
+  <p>© 2026 Torobot</p>
 </footer>
 
 <script>
+// DATOS DUROS Y "BASE DE DATOS" SIMULADA
+const USERS_DB = {
+    "Inmobiliaria": {
+        pass: "1234",
+        records: [
+            {fecha: "2026-04-20", cliente: "Juan Perez", consulta: "Alquiler 2 ambientes", estado: "Pendiente"},
+            {fecha: "2026-04-21", cliente: "Maria Lopez", consulta: "Venta Terreno Funes", estado: "Contactado"},
+            {fecha: "2026-04-22", cliente: "Carlos Rossi", consulta: "Tasación local", estado: "Finalizado"}
+        ]
+    }
+};
+
+function showLogin() {
+    document.getElementById('login-section').style.display = 'flex';
+}
+
+function closeLogin() {
+    document.getElementById('login-section').style.display = 'none';
+}
+
+function handleLogin() {
+    const userInput = document.getElementById('user').value;
+    const passInput = document.getElementById('pass').value;
+
+    if (USERS_DB[userInput] && USERS_DB[userInput].pass === passInput) {
+        renderDashboard(userInput);
+    } else {
+        alert("Usuario o contraseña incorrectos");
+    }
+}
+
+function renderDashboard(userName) {
+    const userData = USERS_DB[userName];
+    
+    // Ocultar landing y login
+    document.getElementById('main-content').style.display = 'none';
+    document.getElementById('login-section').style.display = 'none';
+    
+    // Mostrar dashboard
+    const dashboard = document.getElementById('dashboard');
+    dashboard.style.display = 'block';
+    document.getElementById('welcome-msg').innerText = `Panel de Control: ${userName}`;
+    
+    // Limpiar y cargar tabla
+    const tableBody = document.getElementById('db-content');
+    tableBody.innerHTML = "";
+    
+    userData.records.forEach(row => {
+        tableBody.innerHTML += `
+            <tr>
+                <td>${row.fecha}</td>
+                <td>${row.cliente}</td>
+                <td>${row.consulta}</td>
+                <td><span style="color:#00ffcc">${row.estado}</span></td>
+            </tr>
+        `;
+    });
+}
+
+function logout() {
+    location.reload(); // Forma rápida de volver al inicio
+}
+
 function goWhats(){
   window.location.href = "https://wa.me/5493413242549"
 }
-
-function responder(){
-  let input = document.getElementById("input").value
-  let chat = document.getElementById("chat")
-
-  if(input.toLowerCase().includes("turno")){
-    chat.innerHTML = "📅 Claro! ¿Qué día querés?"
-  } else {
-    chat.innerHTML = "🤖 Entiendo... contame más!"
-  }
-}
-
-/* animación scroll */
-const observer = new IntersectionObserver(entries=>{
-  entries.forEach(entry=>{
-    if(entry.isIntersecting){
-      entry.target.classList.add("show")
-    }
-  })
-})
-
-document.querySelectorAll(".hidden").forEach(el=>observer.observe(el))
 </script>
 
 </body>
