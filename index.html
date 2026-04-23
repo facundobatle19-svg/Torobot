@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
-/* ... (Se mantiene tu CSS anterior) ... */
+/* Se mantienen tus estilos base */
 *{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
 body{ background:#050505; color:white; overflow-x:hidden; }
 body::before{ content:""; position:fixed; width:600px; height:600px; background:#00ffcc; filter:blur(200px); top:-100px; left:-100px; opacity:0.2; }
@@ -28,60 +28,15 @@ nav a:hover{ color:#00ffcc; }
 .btn{ padding:15px 35px; border:none; border-radius:12px; background:linear-gradient(90deg,#00ffcc,#0066ff); color:black; font-weight:bold; cursor:pointer; transition:.3s; margin: 10px; }
 .btn:hover{ transform:scale(1.1); box-shadow:0 0 25px #00ffcc; }
 
-/* ===== NUEVOS ESTILOS LOGIN Y DASHBOARD ===== */
-#login-section {
-    display: none; /* Oculto por defecto */
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9);
-    z-index: 2000;
-    justify-content: center;
-    align-items: center;
-}
+#login-section { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+.login-card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; backdrop-filter: blur(20px); border: 1px solid rgba(0,255,204,0.2); text-align: center; width: 350px; }
+.login-card input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: rgba(255,255,255,0.1); color: white; outline: none; }
 
-.login-card {
-    background: rgba(255,255,255,0.05);
-    padding: 40px;
-    border-radius: 20px;
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(0,255,204,0.2);
-    text-align: center;
-    width: 350px;
-}
-
-.login-card input {
-    width: 100%;
-    padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    border: none;
-    background: rgba(255,255,255,0.1);
-    color: white;
-    outline: none;
-}
-
-#dashboard {
-    display: none; /* Oculto hasta loguearse */
-    padding: 120px 60px;
-    min-height: 80vh;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-    background: rgba(255,255,255,0.02);
-}
-
-.data-table th, .data-table td {
-    padding: 15px;
-    border: 1px solid rgba(255,255,255,0.1);
-    text-align: left;
-}
-
+#dashboard { display: none; padding: 120px 60px; min-height: 80vh; }
+.data-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(255,255,255,0.02); }
+.data-table th, .data-table td { padding: 15px; border: 1px solid rgba(255,255,255,0.1); text-align: left; }
 .data-table th { color: #00ffcc; }
 
-/* ... (Resto de tus secciones originales) ... */
 section{ padding:120px 60px; }
 .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:30px; margin-top:60px; }
 .card{ padding:30px; border-radius:20px; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); transition:.3s; }
@@ -126,14 +81,14 @@ footer{ padding:60px 20px; text-align:center; border-top: 1px solid #333; }
         <h2 style="color:#00ffcc; margin-bottom:20px;">Iniciar Sesión</h2>
         <input type="text" id="user" placeholder="Usuario">
         <input type="password" id="pass" placeholder="Contraseña">
-        <button class="btn" onclick="handleLogin()">Ingresar</button>
+        <button class="btn" id="login-btn" onclick="handleLogin()">Ingresar</button>
         <p onclick="closeLogin()" style="cursor:pointer; font-size: 12px; margin-top:10px; opacity:0.5;">Cerrar</p>
     </div>
 </div>
 
 <section id="dashboard">
     <h2 id="welcome-msg">Bienvenido</h2>
-    <p style="margin-bottom: 30px;">Aquí tenés los registros de tu base de datos:</p>
+    <p style="margin-bottom: 30px;">Aquí tenés los registros reales de tu base de datos:</p>
     
     <table class="data-table">
         <thead>
@@ -160,17 +115,8 @@ footer{ padding:60px 20px; text-align:center; border-top: 1px solid #333; }
 </footer>
 
 <script>
-// DATOS DUROS Y "BASE DE DATOS" SIMULADA
-const USERS_DB = {
-    "Inmobiliaria": {
-        pass: "1234",
-        records: [
-            {fecha: "2026-04-20", cliente: "Juan Perez", consulta: "Alquiler 2 ambientes", estado: "Pendiente"},
-            {fecha: "2026-04-21", cliente: "Maria Lopez", consulta: "Venta Terreno Funes", estado: "Contactado"},
-            {fecha: "2026-04-22", cliente: "Carlos Rossi", consulta: "Tasación local", estado: "Finalizado"}
-        ]
-    }
-};
+// ESTOS DATOS SON TEMPORALES
+// En el próximo paso, los traeremos del server.js con fetch()
 
 function showLogin() {
     document.getElementById('login-section').style.display = 'flex';
@@ -180,34 +126,42 @@ function closeLogin() {
     document.getElementById('login-section').style.display = 'none';
 }
 
-function handleLogin() {
-    const userInput = document.getElementById('user').value;
-    const passInput = document.getElementById('pass').value;
+// Función preparada para ser asíncrona
+async function handleLogin() {
+    const user = document.getElementById('user').value;
+    const pass = document.getElementById('pass').value;
+    const btn = document.getElementById('login-btn');
 
-    if (USERS_DB[userInput] && USERS_DB[userInput].pass === passInput) {
-        renderDashboard(userInput);
+    // Validación temporal "Dura"
+    if (user === "Inmobiliaria" && pass === "1234") {
+        btn.innerText = "Cargando...";
+
+        const res = await fetch("https://torobot-1.onrender.com/datos");
+const data = await res.json();
+
+        
+        // Simulamos una pequeña espera de red (0.5s)
+        setTimeout(() => {
+            renderDashboard(user, data);
+        }, 500);
+        
     } else {
-        alert("Usuario o contraseña incorrectos");
+        alert("Credenciales incorrectas. Probá con Inmobiliaria / 1234");
     }
 }
 
-function renderDashboard(userName) {
-    const userData = USERS_DB[userName];
-    
-    // Ocultar landing y login
+function renderDashboard(userName, data) {
     document.getElementById('main-content').style.display = 'none';
     document.getElementById('login-section').style.display = 'none';
     
-    // Mostrar dashboard
     const dashboard = document.getElementById('dashboard');
     dashboard.style.display = 'block';
     document.getElementById('welcome-msg').innerText = `Panel de Control: ${userName}`;
     
-    // Limpiar y cargar tabla
     const tableBody = document.getElementById('db-content');
     tableBody.innerHTML = "";
     
-    userData.records.forEach(row => {
+    data.forEach(row => {
         tableBody.innerHTML += `
             <tr>
                 <td>${row.fecha}</td>
@@ -220,7 +174,7 @@ function renderDashboard(userName) {
 }
 
 function logout() {
-    location.reload(); // Forma rápida de volver al inicio
+    location.reload();
 }
 
 function goWhats(){
