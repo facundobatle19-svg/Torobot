@@ -176,7 +176,21 @@ function renderDashboard(userName, data) {
 }
 
 function logout() {
-    location.reload();
+    // 1. Ocultar el dashboard
+    document.getElementById('dashboard').style.display = 'none';
+    
+    // 2. Volver a mostrar el contenido principal
+    document.getElementById('main-content').style.display = 'block';
+    
+    // 3. Limpiar los campos de login para que no queden guardados
+    document.getElementById('user').value = "";
+    document.getElementById('pass').value = "";
+    
+    // 4. (Opcional) Resetear el botón de login si quedó en "Cargando..."
+    document.getElementById('login-btn').innerText = "Ingresar";
+
+    // Si de todas formas querés refrescar la app por completo:
+    // location.reload(); 
 }
 
 function goWhats(){
