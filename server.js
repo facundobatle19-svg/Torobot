@@ -227,13 +227,13 @@ async function crearCliente(nombre, promptPersonalizado) {
           }
         } catch (audioErr) {
           console.error(`❌ Error audio:`, audioErr);
-          await delay(30000);
+          await delay(5000);
           return message.reply("No pude entender el audio, ¿me lo transcribís? ✍️");
         }
       }
 
       if (message.hasMedia && message.type === 'image') {
-        await delay(30000);
+        await delay(5000);
         return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
       }
 
@@ -249,7 +249,7 @@ async function crearCliente(nombre, promptPersonalizado) {
           const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto el enlace donde puede ver el *Brochure 2026*: http://bit.ly/4trNVVr\n\n¿En qué zona se encuentra el terreno?`;
           await conversaciones.updateOne({ _id: conv._id }, { $push: { historial: { role: "assistant", content: saludoInmo } } });
           
-          await delay(30000); // 30s delay
+          await delay(5000); // 30s delay
           return message.reply(saludoInmo);
         }
       }
@@ -274,7 +274,7 @@ async function crearCliente(nombre, promptPersonalizado) {
           });
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
           
-          await delay(30000); // 30s delay
+          await delay(5000); // 30s delay
           return message.reply("✅ Reserva tomada. Te confirmamos pronto.");
         }
       }
@@ -290,14 +290,14 @@ async function crearCliente(nombre, promptPersonalizado) {
           }
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: fechaFinal } });
           
-          await delay(30000); // 30s delay
+          await delay(5000); // 30s delay
           return message.reply(`¿Confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`);
         }
       }
 
       if (palabrasCierre.some(p => textoLower === p)) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
-        await delay(30000); // 30s delay
+        await delay(5000); // 30s delay
         return message.reply("¡De nada! 😊");
       }
 
@@ -321,7 +321,7 @@ async function crearCliente(nombre, promptPersonalizado) {
       });
 
       console.log(`⏳ Aplicando delay de 30s para ${nombre}...`);
-      await delay(30000); // 30s delay
+      await delay(5000); // 30s delay
       return message.reply(respuestaIA);
 
     } catch (err) {
