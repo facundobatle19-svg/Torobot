@@ -27,6 +27,7 @@ app.get("/datos", async (req, res) => {
 
     // Formateamos para que coincida con tu HTML
     const datosFormateados = data.map(r => ({
+      id: r._id,
       fecha: new Date(r.fechaSolicitud).toLocaleDateString("es-AR"),
       cliente: r.telefono,
       consulta: "Reserva de turno",
