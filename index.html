@@ -9,35 +9,37 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
-/* Se mantienen tus estilos base */
-*{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
-body{ background:#050505; color:white; overflow-x:hidden; }
-body::before{ content:""; position:fixed; width:600px; height:600px; background:#00ffcc; filter:blur(200px); top:-100px; left:-100px; opacity:0.2; }
-body::after{ content:""; pointer-events:none; position:fixed; width:500px; height:500px; background:#0066ff; filter:blur(200px); bottom:-150px; right:-100px; opacity:0.2; }
+    *{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+    body{ background:#050505; color:white; overflow-x:hidden; }
 
-header{ display:flex; justify-content:space-between; padding:20px 60px; position:fixed; width:100%; backdrop-filter:blur(10px); background:rgba(0,0,0,0.3); z-index:1000; }
-header h1{ color:#00ffcc; }
-nav a{ color:white; margin-left:25px; text-decoration:none; transition:.3s; cursor: pointer;}
-nav a:hover{ color:#00ffcc; }
+    .hidden { display: none !important; }
 
-.hero{ height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
-.hero h2{ font-size:3.5rem; max-width:800px; }
-.hero span{ background:linear-gradient(90deg,#00ffcc,#0066ff); -webkit-background-clip:text; color:transparent; }
-.hero p{ margin:20px 0; opacity:0.7; }
+    body::before{ content:""; position:fixed; width:600px; height:600px; background:#00ffcc; filter:blur(200px); top:-100px; left:-100px; opacity:0.2; }
+    body::after{ content:""; pointer-events:none; position:fixed; width:500px; height:500px; background:#0066ff; filter:blur(200px); bottom:-150px; right:-100px; opacity:0.2; }
 
-.btn{ padding:15px 35px; border:none; border-radius:12px; background:linear-gradient(90deg,#00ffcc,#0066ff); color:black; font-weight:bold; cursor:pointer; transition:.3s; margin: 10px; }
-.btn:hover{ transform:scale(1.1); box-shadow:0 0 25px #00ffcc; }
+    header{ display:flex; justify-content:space-between; align-items: center; padding:20px 60px; position:fixed; width:100%; backdrop-filter:blur(10px); background:rgba(0,0,0,0.3); z-index:1000; }
+    header h1{ color:#00ffcc; font-size: 1.5rem; }
+    nav a{ color:white; margin-left:25px; text-decoration:none; transition:.3s; cursor: pointer; font-weight: 600;}
+    nav a:hover{ color:#00ffcc; }
 
-#login-section { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
-.login-card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; backdrop-filter: blur(20px); border: 1px solid rgba(0,255,204,0.2); text-align: center; width: 350px; }
-.login-card input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: rgba(255,255,255,0.1); color: white; outline: none; }
+    .hero{ height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+    .hero h2{ font-size:3.5rem; max-width:800px; }
+    .hero span{ background:linear-gradient(90deg,#00ffcc,#0066ff); -webkit-background-clip:text; color:transparent; }
+    .hero p{ margin:20px 0; opacity:0.7; }
 
-#dashboard { display: none; padding: 120px 60px; min-height: 80vh; }
-.data-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(255,255,255,0.02); }
-.data-table th, .data-table td { padding: 15px; border: 1px solid rgba(255,255,255,0.1); text-align: left; }
-.data-table th { color: #00ffcc; }
+    .btn{ padding:15px 35px; border:none; border-radius:12px; background:linear-gradient(90deg,#00ffcc,#0066ff); color:black; font-weight:bold; cursor:pointer; transition:.3s; margin: 10px; }
+    .btn:hover{ transform:scale(1.1); box-shadow:0 0 25px #00ffcc; }
 
-section{ padding:120px 60px; }
+    #login-section { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; display: none; }
+    .login-card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; backdrop-filter: blur(20px); border: 1px solid rgba(0,255,204,0.2); text-align: center; width: 350px; }
+    .login-card input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: rgba(255,255,255,0.1); color: white; outline: none; }
+
+    #dashboard { padding: 120px 60px; min-height: 100vh; position: relative; z-index: 10; }
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
+    .data-table th, .data-table td { padding: 15px; border: 1px solid rgba(255,255,255,0.1); text-align: left; }
+    .data-table th { background: rgba(0,255,204,0.1); color: #00ffcc; }
+
+    section{ padding:120px 60px; }
 .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:30px; margin-top:60px; }
 .card{ padding:30px; border-radius:20px; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); transition:.3s; }
 .socials-floating{ display:flex; justify-content:center; gap:20px; padding-bottom: 40px; }
@@ -48,11 +50,12 @@ footer{ padding:60px 20px; text-align:center; border-top: 1px solid #333; }
 
 <body>
 
-<header>
+<header id="global-header">
   <h1>Torobot</h1>
-  <nav>
-    <a href="#features">Funciones</a>
-    <a onclick="showLogin()">Acceso Cliente</a>
+  <nav id="nav-links">
+    <a href="#features" id="link-features">Funciones</a>
+    <a onclick="showLogin()" id="link-login">Acceso Cliente</a>
+    <a onclick="logout()" id="link-logout" class="hidden" style="color: #ff4d4d; border: 1px solid #ff4d4d; padding: 5px 15px; border-radius: 8px;">Salir</a>
   </nav>
 </header>
 
@@ -74,130 +77,113 @@ footer{ padding:60px 20px; text-align:center; border-top: 1px solid #333; }
         <div class="card"><h3>📊 Datos de clientes</h3><p>Guardá y analizá información.</p></div>
       </div>
     </section>
+
+    <footer>
+        <div class="socials-floating">
+          <a href="#"><i class="fab fa-facebook-f"></i></a>
+          <a href="#"><i class="fab fa-instagram"></i></a>
+          <a href="mailto:torobot2026@gmail.com"><i class="fas fa-envelope"></i></a>
+        </div>
+        <p>© 2026 Torobot</p>
+      </footer>
+
 </div>
 
-<div id="login-section">
-    <div class="login-card">
-        <h2 style="color:#00ffcc; margin-bottom:20px;">Iniciar Sesión</h2>
-        <input type="text" id="user" placeholder="Usuario">
-        <input type="password" id="pass" placeholder="Contraseña">
-        <button class="btn" id="login-btn" onclick="handleLogin()">Ingresar</button>
-        <p onclick="closeLogin()" style="cursor:pointer; font-size: 12px; margin-top:10px; opacity:0.5;">Cerrar</p>
-    </div>
+<div id="login-section" class="hidden">
+  <div class="login-card">
+      <h2 style="color:#00ffcc; margin-bottom:20px;">Iniciar Sesión</h2>
+      <input type="text" id="user" placeholder="Usuario">
+      <input type="password" id="pass" placeholder="Contraseña">
+      <button class="btn" id="login-btn" onclick="handleLogin()">Ingresar</button>
+      <p onclick="closeLogin()" style="cursor:pointer; font-size: 12px; margin-top:10px; opacity:0.5;">Cerrar</p>
+  </div>
 </div>
 
-<section id="dashboard">
-    <h2 id="welcome-msg">Bienvenido</h2>
-    <p style="margin-bottom: 30px;">Aquí tenés los registros reales de tu base de datos:</p>
-    
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Fecha</th>
-                <th>Cliente</th>
-                <th>Consulta</th>
-                <th>Estado</th>
-            </tr>
-        </thead>
-        <tbody id="db-content">
-            </tbody>
-    </table>
-    <button class="btn" onclick="logout()" style="margin-top: 40px;">Cerrar Sesión</button>
+<section id="dashboard" class="hidden">
+  <h2 id="welcome-msg">Bienvenido</h2>
+  <p style="margin-bottom: 30px;">Aquí tenés los registros de tu base de datos:</p>
+  
+  <table class="data-table">
+      <thead>
+          <tr>
+              <th>ID</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Consulta</th>
+              <th>Estado</th>
+          </tr>
+      </thead>
+      <tbody id="db-content"></tbody>
+  </table>
+
+  <button class="btn" onclick="logout()" style="margin-top: 40px; background: #ff4d4d; color: white;">Cerrar Sesión</button>
 </section>
 
-<footer>
-  <div class="socials-floating">
-    <a href="#"><i class="fab fa-facebook-f"></i></a>
-    <a href="#"><i class="fab fa-instagram"></i></a>
-    <a href="mailto:torobot2026@gmail.com"><i class="fas fa-envelope"></i></a>
-  </div>
-  <p>© 2026 Torobot</p>
-</footer>
-
 <script>
-// ESTOS DATOS SON TEMPORALES
-// En el próximo paso, los traeremos del server.js con fetch()
-
-function showLogin() {
-    document.getElementById('login-section').style.display = 'flex';
-}
-
-function closeLogin() {
-    document.getElementById('login-section').style.display = 'none';
-}
-
-// Función preparada para ser asíncrona
-async function handleLogin() {
-    const user = document.getElementById('user').value;
-    const pass = document.getElementById('pass').value;
-    const btn = document.getElementById('login-btn');
-
-    // Validación temporal "Dura"
-    if (user === "Inmobiliaria" && pass === "1234") {
-        btn.innerText = "Cargando...";
-
-        const res = await fetch("https://torobot-1.onrender.com/datos");
-const data = await res.json();
-
-        
-        // Simulamos una pequeña espera de red (0.5s)
-        setTimeout(() => {
-            renderDashboard(user, data);
-        }, 500);
-        
-    } else {
-        alert("Credenciales incorrectas. Probá con Inmobiliaria / 1234");
+    function showLogin() {
+        const loginSec = document.getElementById('login-section');
+        loginSec.classList.remove('hidden');
+        loginSec.style.display = 'flex';
     }
-}
 
-function renderDashboard(userName, data) {
-    document.getElementById('main-content').style.display = 'none';
-    document.getElementById('login-section').style.display = 'none';
-    
-    const dashboard = document.getElementById('dashboard');
-    dashboard.style.display = 'block';
-    document.getElementById('welcome-msg').innerText = `Panel de Control: ${userName}`;
-    
-    const tableBody = document.getElementById('db-content');
-    tableBody.innerHTML = "";
-    
-    data.forEach(row => {
-        tableBody.innerHTML += `
-            <tr>
-                <td style="font-size: 10px; opacity: 0.6;">${row.id}</td>
-                <td>${row.fecha}</td>
-                <td>${row.cliente}</td>
-                <td>${row.consulta}</td>
-                <td><span style="color:#00ffcc">${row.estado}</span></td>
-            </tr>
-        `;
-    });
-}
+    function closeLogin() {
+        const loginSec = document.getElementById('login-section');
+        loginSec.style.display = 'none';
+        loginSec.classList.add('hidden');
+    }
 
-function logout() {
-    console.log("Cerrando sesión..."); // Esto es para que verifiques en la consola (F12) si el botón reacciona
-    
-    // 1. Ocultar el dashboard por completo
-    const dashboard = document.getElementById('dashboard');
-    dashboard.style.display = 'none';
-    
-    // 2. Volver a mostrar el contenido principal
-    const mainContent = document.getElementById('main-content');
-    mainContent.style.display = 'block';
-    
-    // 3. ¡IMPORTANTE! Subir el scroll al inicio de la página
-    window.scrollTo(0, 0);
-    
-    // 4. Limpiar los campos
-    document.getElementById('user').value = "";
-    document.getElementById('pass').value = "";
-    document.getElementById('login-btn').innerText = "Ingresar";
-}
+    async function handleLogin() {
+        const user = document.getElementById('user').value;
+        const pass = document.getElementById('pass').value;
+        const btn = document.getElementById('login-btn');
 
-function goWhats(){
-  window.location.href = "https://wa.me/5493413242549"
-}
+        if (user === "Inmobiliaria" && pass === "1234") {
+            btn.innerText = "Cargando...";
+            try {
+                const res = await fetch("https://torobot-1.onrender.com/datos");
+                const data = await res.json();
+                renderDashboard(user, data);
+            } catch (error) {
+                renderDashboard(user, [{ id: "1", fecha: "Hoy", cliente: "Demo", consulta: "Consulta test", estado: "Pendiente" }]);
+            }
+            btn.innerText = "Ingresar";
+        } else {
+            alert("Credenciales incorrectas");
+        }
+    }
+
+    function renderDashboard(userName, data) {
+        // Ocultar landing
+        document.getElementById('main-content').classList.add('hidden');
+        closeLogin();
+        
+        // Cambiar botones del header
+        document.getElementById('link-features').classList.add('hidden');
+        document.getElementById('link-login').classList.add('hidden');
+        document.getElementById('link-logout').classList.remove('hidden');
+
+        // Mostrar dashboard
+        document.getElementById('dashboard').classList.remove('hidden');
+        document.getElementById('welcome-msg').innerText = `Panel: ${userName}`;
+        
+        const tableBody = document.getElementById('db-content');
+        tableBody.innerHTML = "";
+        data.forEach(row => {
+            tableBody.innerHTML += `<tr><td>${row.id}</td><td>${row.fecha}</td><td>${row.cliente}</td><td>${row.consulta}</td><td>${row.estado}</td></tr>`;
+        });
+    }
+
+    // FUNCIÓN DE CIERRE DEFINITIVA
+    function logout() {
+        if(confirm("¿Estás seguro de que querés cerrar sesión?")) {
+            // La forma más segura: Recargar la web al estado inicial
+            window.location.reload();
+        }
+    }
+
+    function goWhats(){
+      window.location.href = "https://wa.me/5493413242549";
+    }
 </script>
 
 </body>
