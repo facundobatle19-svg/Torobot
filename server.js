@@ -16,7 +16,12 @@ import cors from "cors";
 // ==========================================
 const app = express();
 
-app.use(cors());
+// Configuración de CORS más robusta
+app.use(cors({
+  origin: "*", 
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
 
 const port = process.env.PORT || 10000;
 app.get('/', (req, res) => res.send('TOROBOT ONLINE 🚀'));
@@ -25,12 +30,12 @@ app.get("/datos", async (req, res) => {
   try {
     const data = await reservas.find().sort({ fechaSolicitud: -1 }).limit(50).toArray();
 
-    // Formateamos con validación para evitar errores de CORS/502
     const datosFormateados = data.map(r => {
-      // Validamos que exista r.telefono antes de hacer el split
-      const telefonoLimpio = r.telefono && typeof r.telefono === "string" 
-        ? r.telefono.split('@')[0] 
-        : "Sin número";
+      // Validación ultra-segura para el teléfono
+      let telefonoLimpio = "Sin número";
+      if (r.telefono) {
+        telefonoLimpio = String(r.telefono).split('@')[0];
+      }
 
       return {
         id: r._id,
@@ -242,15 +247,16 @@ async function crearCliente(nombre, promptPersonalizado) {
       }
 
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
-      if (conv.state === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
+      
+      // CORRECCIÓN AQUÍ: Cambiado conv.state por conv.estado
+      if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
         conv.estado = "inicio";
       }
 
       if (conv.estado === "pendiente_confirmacion") {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
-          // Limpiamos el número antes de guardar para evitar líos en la DB
-          const numFinal = message.from ? message.from.split('@')[0] : "desconocido";
+          const numFinal = message.from ? String(message.from).split('@')[0] : "desconocido";
           
           await reservas.insertOne({
             botId: nombre,
