@@ -1,3 +1,5 @@
+//asi esta bien
+
 import { MongoClient } from "mongodb";
 import 'dotenv/config';
 import pkg from "whatsapp-web.js";
@@ -158,29 +160,26 @@ const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta l
 async function crearCliente(nombre, promptPersonalizado) {
   const isRender = process.env.RENDER === "true";
   const persistencePath = isRender ? "/var/data" : "./.wwebjs_auth";
+  // Esta es la ruta donde LocalAuth guarda los datos de sesión de cada bot
   const sessionPath = `${persistencePath}/session-${nombre}`;
 
   if (isRender) {
     try {
-      console.log("🧹 Limpiando bloqueos de Chrome...");
-      // Limpiamos el lock tanto en el perfil general como en la sesión específica
-      execSync("rm -rf /var/data/chrome-profile/SingletonLock");
-      if (fs.existsSync(`${sessionPath}/SingletonLock`)) {
-        execSync(`rm -rf ${sessionPath}/SingletonLock`);
-      }
+      console.log(`🧹 Limpiando bloqueos para ${nombre}...`);
       
-      // DIAGNÓSTICO
-      if (fs.existsSync(sessionPath)) {
-        const archivos = fs.readdirSync(sessionPath);
-        console.log(`📂 [DIAGNÓSTICO] Sesión encontrada en ${sessionPath}. Archivos: ${archivos.length}`);
-      } else {
-        console.log(`⚠️ [DIAGNÓSTICO] No se encontró carpeta de sesión en ${sessionPath}`);
+      // 1. Borramos el SingletonLock general si existe
+      execSync("rm -rf /var/data/chrome-profile/SingletonLock");
+      
+      // 2. Borramos el SingletonLock ESPECÍFICO de esta sesión (Muy importante)
+      const lockPath = `${sessionPath}/Default/SingletonLock`;
+      if (fs.existsSync(lockPath)) {
+        console.log("🔓 Desbloqueando sesión específica...");
+        execSync(`rm -f ${lockPath}`);
       }
     } catch (e) {
-      console.log("Error en limpieza/diagnóstico:", e.message);
+      console.log("Aviso en limpieza:", e.message);
     }
   }
-
   // Aseguramos que la ruta base exista
   if (!fs.existsSync(persistencePath)) {
     fs.mkdirSync(persistencePath, { recursive: true });
