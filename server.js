@@ -12,11 +12,6 @@ import { execSync } from "child_process";
 import cors from "cors";
 
 // ==========================================
-// 🛠️ HELPERS
-// ==========================================
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// ==========================================
 // 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
 // ==========================================
 const app = express();
@@ -165,7 +160,7 @@ function parsearFechaTurno(texto) {
 const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya"];
 
 // ==========================================
-// 📱 FÁBRICA DE BOTS (VERSIÓN BLINDADA)
+// 📱 FÁBRICA DE BOTS (SIN DELAYS)
 // ==========================================
 async function crearCliente(nombre, promptPersonalizado) {
   const isRender = process.env.RENDER === "true";
@@ -227,13 +222,11 @@ async function crearCliente(nombre, promptPersonalizado) {
           }
         } catch (audioErr) {
           console.error(`❌ Error audio:`, audioErr);
-          await delay(5000);
           return message.reply("No pude entender el audio, ¿me lo transcribís? ✍️");
         }
       }
 
       if (message.hasMedia && message.type === 'image') {
-        await delay(5000);
         return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
       }
 
@@ -248,8 +241,6 @@ async function crearCliente(nombre, promptPersonalizado) {
         if (nombre === "inmobiliaria") {
           const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto el enlace donde puede ver el *Brochure 2026*: http://bit.ly/4trNVVr\n\n¿En qué zona se encuentra el terreno?`;
           await conversaciones.updateOne({ _id: conv._id }, { $push: { historial: { role: "assistant", content: saludoInmo } } });
-          
-          await delay(5000); // 30s delay
           return message.reply(saludoInmo);
         }
       }
@@ -273,8 +264,6 @@ async function crearCliente(nombre, promptPersonalizado) {
             fechaSolicitud: new Date()
           });
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
-          
-          await delay(5000); // 30s delay
           return message.reply("✅ Reserva tomada. Te confirmamos pronto.");
         }
       }
@@ -289,15 +278,12 @@ async function crearCliente(nombre, promptPersonalizado) {
             fechaFinal = base;
           }
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: fechaFinal } });
-          
-          await delay(5000); // 30s delay
           return message.reply(`¿Confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`);
         }
       }
 
       if (palabrasCierre.some(p => textoLower === p)) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
-        await delay(5000); // 30s delay
         return message.reply("¡De nada! 😊");
       }
 
@@ -320,8 +306,7 @@ async function crearCliente(nombre, promptPersonalizado) {
         $push: { historial: { $each: [{ role: "user", content: texto }, { role: "assistant", content: respuestaIA }], $slice: -20 } } 
       });
 
-      console.log(`⏳ Aplicando delay de 30s para ${nombre}...`);
-      await delay(5000); // 30s delay
+      console.log(`🚀 Respondiendo inmediatamente a ${nombre}...`);
       return message.reply(respuestaIA);
 
     } catch (err) {
@@ -329,11 +314,9 @@ async function crearCliente(nombre, promptPersonalizado) {
     }
   });
 
-  console.log(`⏳ Estabilizando disco (5s)...`);
-  setTimeout(() => {
-    console.log(`🚀 Inicializando cliente ${nombre}...`);
-    client.initialize();
-  }, 5000);
+  // Inicialización directa sin esperas largas
+  console.log(`🚀 Inicializando cliente ${nombre}...`);
+  client.initialize();
 }
 
 crearCliente("inmobiliaria", promptInmobiliaria);
