@@ -12,11 +12,15 @@ import { execSync } from "child_process";
 import cors from "cors";
 
 // ==========================================
+// 🛠️ HELPERS
+// ==========================================
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ==========================================
 // 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
 // ==========================================
 const app = express();
 
-// Configuración de CORS más robusta
 app.use(cors({
   origin: "*", 
   methods: ["GET", "POST"],
@@ -24,19 +28,16 @@ app.use(cors({
 }));
 
 const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('TOROBOT ONLINE 🚀'));
+app.get('/', (req, res) => res.send('BOT-DYLAN ONLINE 🚀'));
 
 app.get("/datos", async (req, res) => {
   try {
     const data = await reservas.find().sort({ fechaSolicitud: -1 }).limit(50).toArray();
-
     const datosFormateados = data.map(r => {
-      // Validación ultra-segura para el teléfono
       let telefonoLimpio = "Sin número";
       if (r.telefono) {
         telefonoLimpio = String(r.telefono).split('@')[0];
       }
-
       return {
         id: r._id,
         fecha: r.fechaSolicitud ? new Date(r.fechaSolicitud).toLocaleDateString("es-AR") : "S/F",
@@ -45,9 +46,7 @@ app.get("/datos", async (req, res) => {
         estado: r.estado || "pendiente"
       };
     });
-
     res.json(datosFormateados);
-
   } catch (error) {
     console.error("❌ Error en /datos:", error);
     res.status(500).json({ error: "Error al obtener datos" });
@@ -210,6 +209,7 @@ async function crearCliente(nombre, promptPersonalizado) {
       if (message.fromMe || message.from.includes("@g.us") || message.from === 'status@broadcast') return;
       let texto = message.body || "";
 
+      // --- Gestión de Audios ---
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         try {
           const media = await message.downloadMedia();
@@ -227,14 +227,20 @@ async function crearCliente(nombre, promptPersonalizado) {
           }
         } catch (audioErr) {
           console.error(`❌ Error audio:`, audioErr);
+          await delay(30000);
           return message.reply("No pude entender el audio, ¿me lo transcribís? ✍️");
         }
       }
 
-      if (message.hasMedia && message.type === 'image') return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
+      if (message.hasMedia && message.type === 'image') {
+        await delay(30000);
+        return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
+      }
+
       if (!texto || texto.trim() === "") return;
       const textoLower = texto.toLowerCase().trim();
 
+      // --- Lógica de Conversación y Estados ---
       let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
       if (!conv) {
         conv = { telefono: message.from, estado: "inicio", botId: nombre, historial: [] };
@@ -242,13 +248,14 @@ async function crearCliente(nombre, promptPersonalizado) {
         if (nombre === "inmobiliaria") {
           const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto el enlace donde puede ver el *Brochure 2026*: http://bit.ly/4trNVVr\n\n¿En qué zona se encuentra el terreno?`;
           await conversaciones.updateOne({ _id: conv._id }, { $push: { historial: { role: "assistant", content: saludoInmo } } });
+          
+          await delay(30000); // 30s delay
           return message.reply(saludoInmo);
         }
       }
 
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       
-      // CORRECCIÓN AQUÍ: Cambiado conv.state por conv.estado
       if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
         conv.estado = "inicio";
@@ -266,6 +273,8 @@ async function crearCliente(nombre, promptPersonalizado) {
             fechaSolicitud: new Date()
           });
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
+          
+          await delay(30000); // 30s delay
           return message.reply("✅ Reserva tomada. Te confirmamos pronto.");
         }
       }
@@ -280,27 +289,39 @@ async function crearCliente(nombre, promptPersonalizado) {
             fechaFinal = base;
           }
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "pendiente_confirmacion", fechaTurnoTemp: fechaFinal } });
+          
+          await delay(30000); // 30s delay
           return message.reply(`¿Confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`);
         }
       }
 
       if (palabrasCierre.some(p => textoLower === p)) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
+        await delay(30000); // 30s delay
         return message.reply("¡De nada! 😊");
       }
 
+      // --- Respuesta de la IA con Groq ---
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
       const historialChat = convActualizada.historial || [];
 
       const completion = await groq.chat.completions.create({
-        messages: [{ role: "system", content: promptPersonalizado }, ...historialChat.slice(-8), { role: "user", content: texto }],
+        messages: [
+          { role: "system", content: promptPersonalizado }, 
+          ...historialChat.slice(-8), 
+          { role: "user", content: texto }
+        ],
         model: "llama-3.1-8b-instant"
       });
 
       const respuestaIA = completion.choices[0].message.content;
+      
       await conversaciones.updateOne({ _id: conv._id }, { 
         $push: { historial: { $each: [{ role: "user", content: texto }, { role: "assistant", content: respuestaIA }], $slice: -20 } } 
       });
+
+      console.log(`⏳ Aplicando delay de 30s para ${nombre}...`);
+      await delay(30000); // 30s delay
       return message.reply(respuestaIA);
 
     } catch (err) {
