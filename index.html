@@ -93,6 +93,7 @@ footer{ padding:60px 20px; text-align:center; border-top: 1px solid #333; }
     <table class="data-table">
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Fecha</th>
                 <th>Cliente</th>
                 <th>Consulta</th>
@@ -164,6 +165,7 @@ function renderDashboard(userName, data) {
     data.forEach(row => {
         tableBody.innerHTML += `
             <tr>
+                <td style="font-size: 10px; opacity: 0.6;">${row.id}</td>
                 <td>${row.fecha}</td>
                 <td>${row.cliente}</td>
                 <td>${row.consulta}</td>
