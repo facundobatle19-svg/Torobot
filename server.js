@@ -18,21 +18,28 @@ const app = express();
 
 app.use(cors());
 
-
 const port = process.env.PORT || 10000;
 app.get('/', (req, res) => res.send('TOROBOT ONLINE 🚀'));
+
 app.get("/datos", async (req, res) => {
   try {
     const data = await reservas.find().sort({ fechaSolicitud: -1 }).limit(50).toArray();
 
-    // Formateamos para que coincida con tu HTML
-    const datosFormateados = data.map(r => ({
-      id: r._id,
-      fecha: new Date(r.fechaSolicitud).toLocaleDateString("es-AR"),
-      cliente: r.telefono.split('@')[0], // <--- AGREGÁ EL .split('@')[0] AQUÍ
-      consulta: "Reserva de turno",
-      estado: r.estado
-    }));
+    // Formateamos con validación para evitar errores de CORS/502
+    const datosFormateados = data.map(r => {
+      // Validamos que exista r.telefono antes de hacer el split
+      const telefonoLimpio = r.telefono && typeof r.telefono === "string" 
+        ? r.telefono.split('@')[0] 
+        : "Sin número";
+
+      return {
+        id: r._id,
+        fecha: r.fechaSolicitud ? new Date(r.fechaSolicitud).toLocaleDateString("es-AR") : "S/F",
+        cliente: telefonoLimpio,
+        consulta: "Reserva de turno",
+        estado: r.estado || "pendiente"
+      };
+    });
 
     res.json(datosFormateados);
 
@@ -41,6 +48,7 @@ app.get("/datos", async (req, res) => {
     res.status(500).json({ error: "Error al obtener datos" });
   }
 });
+
 app.listen(port, '0.0.0.0', () => console.log(`🌍 Server listening on port ${port}`));
 
 // ==========================================
@@ -158,17 +166,12 @@ const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta l
 async function crearCliente(nombre, promptPersonalizado) {
   const isRender = process.env.RENDER === "true";
   const persistencePath = isRender ? "/var/data" : "./.wwebjs_auth";
-  // Esta es la ruta donde LocalAuth guarda los datos de sesión de cada bot
   const sessionPath = `${persistencePath}/session-${nombre}`;
 
   if (isRender) {
     try {
       console.log(`🧹 Limpiando bloqueos para ${nombre}...`);
-      
-      // 1. Borramos el SingletonLock general si existe
       execSync("rm -rf /var/data/chrome-profile/SingletonLock");
-      
-      // 2. Borramos el SingletonLock ESPECÍFICO de esta sesión (Muy importante)
       const lockPath = `${sessionPath}/Default/SingletonLock`;
       if (fs.existsSync(lockPath)) {
         console.log("🔓 Desbloqueando sesión específica...");
@@ -178,7 +181,6 @@ async function crearCliente(nombre, promptPersonalizado) {
       console.log("Aviso en limpieza:", e.message);
     }
   }
-  // Aseguramos que la ruta base exista
   if (!fs.existsSync(persistencePath)) {
     fs.mkdirSync(persistencePath, { recursive: true });
   }
@@ -239,19 +241,20 @@ async function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
-      // Re-apertura de conversación
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
-      if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
+      if (conv.state === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
         conv.estado = "inicio";
       }
 
-      // Lógica de reservas y estados
       if (conv.estado === "pendiente_confirmacion") {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
+          // Limpiamos el número antes de guardar para evitar líos en la DB
+          const numFinal = message.from ? message.from.split('@')[0] : "desconocido";
+          
           await reservas.insertOne({
             botId: nombre,
-            telefono: message.from.split('@')[0], // <--- AGREGÁ EL .split('@')[0] AQUÍ
+            telefono: numFinal,
             fechaTurno: new Date(conv.fechaTurnoTemp),
             estado: "pendiente",
             fechaSolicitud: new Date()
@@ -280,7 +283,6 @@ async function crearCliente(nombre, promptPersonalizado) {
         return message.reply("¡De nada! 😊");
       }
 
-      // Respuesta de IA
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
       const historialChat = convActualizada.historial || [];
 
