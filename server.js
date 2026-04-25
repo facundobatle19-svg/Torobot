@@ -58,16 +58,18 @@ function getPuppeteerConfig() {
   if (isRender) {
     return {
       headless: true,
+      // No definas executablePath en Render, deja que el buildpack lo encuentre
       args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox', 
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu', 
-        '--no-zygote', 
-        '--single-process'
+        '--disable-gpu',
+        '--no-zygote',
+        '--single-process' // Crucial para Render
       ]
     };
   }
+  // Tu config de Mac local
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
@@ -167,19 +169,14 @@ async function crearCliente(nombre, promptPersonalizado) {
   const persistencePath = isRender ? "/var/data" : "./.wwebjs_auth";
   const sessionPath = `${persistencePath}/session-${nombre}`;
 
-  if (isRender) {
-    try {
-      console.log(`🧹 Limpiando bloqueos para ${nombre}...`);
-      execSync("rm -rf /var/data/chrome-profile/SingletonLock");
-      const lockPath = `${sessionPath}/Default/SingletonLock`;
-      if (fs.existsSync(lockPath)) {
-        console.log("🔓 Desbloqueando sesión específica...");
-        execSync(`rm -f ${lockPath}`);
-      }
-    } catch (e) {
-      console.log("Aviso en limpieza:", e.message);
-    }
+if (isRender) {
+  try {
+    console.log(`🧹 Limpiando bloqueos profundos para ${nombre}...`);
+    execSync(`find ${persistencePath} -name "SingletonLock" -exec rm -f {} +`);
+  } catch (e) {
+    console.log("Aviso en limpieza:", e.message);
   }
+}
   if (!fs.existsSync(persistencePath)) {
     fs.mkdirSync(persistencePath, { recursive: true });
   }
