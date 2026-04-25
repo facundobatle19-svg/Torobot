@@ -176,21 +176,23 @@ function renderDashboard(userName, data) {
 }
 
 function logout() {
-    // 1. Ocultar el dashboard
-    document.getElementById('dashboard').style.display = 'none';
+    console.log("Cerrando sesión..."); // Esto es para que verifiques en la consola (F12) si el botón reacciona
+    
+    // 1. Ocultar el dashboard por completo
+    const dashboard = document.getElementById('dashboard');
+    dashboard.style.display = 'none';
     
     // 2. Volver a mostrar el contenido principal
-    document.getElementById('main-content').style.display = 'block';
+    const mainContent = document.getElementById('main-content');
+    mainContent.style.display = 'block';
     
-    // 3. Limpiar los campos de login para que no queden guardados
+    // 3. ¡IMPORTANTE! Subir el scroll al inicio de la página
+    window.scrollTo(0, 0);
+    
+    // 4. Limpiar los campos
     document.getElementById('user').value = "";
     document.getElementById('pass').value = "";
-    
-    // 4. (Opcional) Resetear el botón de login si quedó en "Cargando..."
     document.getElementById('login-btn').innerText = "Ingresar";
-
-    // Si de todas formas querés refrescar la app por completo:
-    // location.reload(); 
 }
 
 function goWhats(){
