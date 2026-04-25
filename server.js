@@ -1,5 +1,3 @@
-//asi esta bien
-
 import { MongoClient } from "mongodb";
 import 'dotenv/config';
 import pkg from "whatsapp-web.js";
@@ -31,7 +29,7 @@ app.get("/datos", async (req, res) => {
     const datosFormateados = data.map(r => ({
       id: r._id,
       fecha: new Date(r.fechaSolicitud).toLocaleDateString("es-AR"),
-      cliente: r.telefono,
+      cliente: r.telefono.split('@')[0], // <--- AGREGÁ EL .split('@')[0] AQUÍ
       consulta: "Reserva de turno",
       estado: r.estado
     }));
@@ -253,7 +251,7 @@ async function crearCliente(nombre, promptPersonalizado) {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
           await reservas.insertOne({
             botId: nombre,
-            telefono: message.from,
+            telefono: message.from.split('@')[0], // <--- AGREGÁ EL .split('@')[0] AQUÍ
             fechaTurno: new Date(conv.fechaTurnoTemp),
             estado: "pendiente",
             fechaSolicitud: new Date()
