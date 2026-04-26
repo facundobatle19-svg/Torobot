@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb";
 import 'dotenv/config';
 import pkg from "whatsapp-web.js";
-const { Client, LocalAuth } = pkg;
+const { Client, LocalAuth, MessageMedia } = pkg;
 import qrcode from "qrcode-terminal";
 import Groq from "groq-sdk";
 import { Readable } from "stream";
@@ -232,15 +232,34 @@ if (isRender) {
 
       // --- Lógica de Conversación y Estados ---
       let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
-      if (!conv) {
-        conv = { telefono: message.from, estado: "inicio", botId: nombre, historial: [] };
-        await conversaciones.insertOne(conv);
-        if (nombre === "inmobiliaria") {
-          const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto el enlace donde puede ver el *Brochure 2026*: http://bit.ly/4trNVVr\n\n¿En qué zona se encuentra el terreno?`;
-          await conversaciones.updateOne({ _id: conv._id }, { $push: { historial: { role: "assistant", content: saludoInmo } } });
-          return message.reply(saludoInmo);
+if (!conv) {
+    conv = { telefono: message.from, estado: "inicio", botId: nombre, historial: [] };
+    await conversaciones.insertOne(conv);
+
+    if (nombre === "inmobiliaria") {
+        const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto nuestro *Brochure 2026* actualizado.\n\n¿En qué zona se encuentra el terreno?`;
+        
+        // 1. Cargamos el archivo PDF (debe estar en la carpeta raíz de tu proyecto)
+        const pathPdf = "./brochure 2026.pdf";
+        
+        if (fs.existsSync(pathPdf)) {
+            const media = MessageMedia.fromFilePath(pathPdf);
+            
+            // 2. Enviamos el PDF con el texto como "caption"
+            await client.sendMessage(message.from, media, { caption: saludoInmo });
+        } else {
+            // Backup por si te olvidaste de subir el archivo
+            console.error("❌ El archivo PDF no existe en la ruta:", pathPdf);
+            await message.reply(saludoInmo);
         }
-      }
+
+        await conversaciones.updateOne(
+            { _id: conv._id }, 
+            { $push: { historial: { role: "assistant", content: saludoInmo } } }
+        );
+        return; 
+    }
+}
 
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
       
