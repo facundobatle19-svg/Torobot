@@ -240,7 +240,7 @@ if (!conv) {
         const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto nuestro *Brochure 2026* actualizado.\n\n¿En qué zona se encuentra el terreno?`;
         
         // 1. Cargamos el archivo PDF (debe estar en la carpeta raíz de tu proyecto)
-        const pathPdf = "./brochure 2026.pdf";
+        const pathPdf = "./Brochure 2026.pdf";
         
         if (fs.existsSync(pathPdf)) {
             const media = MessageMedia.fromFilePath(pathPdf);
