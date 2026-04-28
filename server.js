@@ -6,6 +6,7 @@ import qrcode from "qrcode-terminal";
 import Groq from "groq-sdk";
 import { Readable } from "stream";
 import { promptInmobiliaria } from "./prompts/inmobiliaria.js";
+import { promptToronja } from "./prompts/toronja.js";
 import express from "express";
 import fs from "fs";
 import { execSync } from "child_process";
@@ -336,3 +337,4 @@ if (!conv) {
 }
 
 crearCliente("inmobiliaria", promptInmobiliaria);
+crearCliente("toronja", promptToronja);
