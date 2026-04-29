@@ -310,6 +310,26 @@ async function crearCliente(nombre, promptPersonalizado) {
         }
       }
 
+      const resultado = parsearFechaTurno(textoLower);
+
+if (resultado.diaDetectado && resultado.horaDetectada) {
+  const fechaFinal = new Date(resultado.fecha);
+
+  await conversaciones.updateOne(
+    { _id: conv._id },
+    { 
+      $set: { 
+        estado: "pendiente_confirmacion",
+        fechaTurnoTemp: fechaFinal 
+      } 
+    }
+  );
+
+  return message.reply(
+    `Perfecto, ¿confirmamos el turno para el ${fechaFinal.toLocaleString("es-AR")}? (SI/NO)`
+  );
+}
+
       if (palabrasCierre.some(p => textoLower === p)) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
         return message.reply("¡De nada! 😊");
