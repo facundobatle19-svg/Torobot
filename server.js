@@ -11,6 +11,46 @@ import express from "express";
 import fs from "fs";
 import { execSync } from "child_process";
 import cors from "cors";
+import { google } from "googleapis"; // 📅 Nueva importación
+
+// ==========================================
+// 📅 CONFIGURACIÓN GOOGLE CALENDAR
+// ==========================================
+const SCOPES = ["https://www.googleapis.com/auth/calendar"];
+const auth = new google.auth.GoogleAuth({
+  keyFile: "credentials.json", // Tu archivo descargado
+  scopes: SCOPES,
+});
+const calendar = google.calendar({ version: "v3", auth });
+const CALENDAR_ID = "primary"; 
+
+async function agendarEnGoogle(fechaInicio, botNombre, telefono) {
+  try {
+    const end = new Date(fechaInicio);
+    end.setHours(end.getHours() + 1); // Turno de 1 hora
+
+    const event = {
+      summary: `Reserva: ${botNombre.toUpperCase()} - ${telefono}`,
+      description: `Agendado automáticamente por BOT-DYLAN\nCliente: ${telefono}`,
+      start: {
+        dateTime: fechaInicio.toISOString(),
+        timeZone: "America/Argentina/Buenos_Aires",
+      },
+      end: {
+        dateTime: end.toISOString(),
+        timeZone: "America/Argentina/Buenos_Aires",
+      },
+    };
+
+    await calendar.events.insert({
+      calendarId: CALENDAR_ID,
+      resource: event,
+    });
+    console.log(`📅 Evento agendado para ${botNombre} - ${telefono}`);
+  } catch (error) {
+    console.error("❌ Error en Google Calendar:", error);
+  }
+}
 
 // ==========================================
 // 🌐 SERVIDOR PARA RENDER (EVITA REINICIOS)
@@ -59,18 +99,16 @@ function getPuppeteerConfig() {
   if (isRender) {
     return {
       headless: true,
-      // No definas executablePath en Render, deja que el buildpack lo encuentre
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--no-zygote',
-        '--single-process' // Crucial para Render
+        '--single-process'
       ]
     };
   }
-  // Tu config de Mac local
   return {
     executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
@@ -163,30 +201,22 @@ function parsearFechaTurno(texto) {
 const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya"];
 
 // ==========================================
-// 📱 FÁBRICA DE BOTS (SIN DELAYS)
+// 📱 FÁBRICA DE BOTS
 // ==========================================
 async function crearCliente(nombre, promptPersonalizado) {
   const isRender = process.env.RENDER === "true";
   const persistencePath = isRender ? "/var/data" : "./.wwebjs_auth";
-  const sessionPath = `${persistencePath}/session-${nombre}`;
 
-if (isRender) {
-  try {
-    console.log(`🧹 Limpiando bloqueos profundos para ${nombre}...`);
-    execSync(`find ${persistencePath} -name "SingletonLock" -exec rm -f {} +`);
-  } catch (e) {
-    console.log("Aviso en limpieza:", e.message);
+  if (isRender) {
+    try {
+      execSync(`find ${persistencePath} -name "SingletonLock" -exec rm -f {} +`);
+    } catch (e) { console.log("Aviso limpieza:", e.message); }
   }
-}
-  if (!fs.existsSync(persistencePath)) {
-    fs.mkdirSync(persistencePath, { recursive: true });
-  }
+
+  if (!fs.existsSync(persistencePath)) fs.mkdirSync(persistencePath, { recursive: true });
 
   const client = new Client({
-    authStrategy: new LocalAuth({
-      clientId: nombre,
-      dataPath: persistencePath
-    }),
+    authStrategy: new LocalAuth({ clientId: nombre, dataPath: persistencePath }),
     puppeteer: getPuppeteerConfig()
   });
 
@@ -202,89 +232,70 @@ if (isRender) {
       if (message.fromMe || message.from.includes("@g.us") || message.from === 'status@broadcast') return;
       let texto = message.body || "";
 
-      // --- Gestión de Audios ---
+      // --- Audios ---
       if (message.hasMedia && (message.type === 'audio' || message.type === 'ptt')) {
         try {
           const media = await message.downloadMedia();
-          if (media && media.data) {
-            const buffer = Buffer.from(media.data, 'base64');
-            const stream = Readable.from(buffer);
-            stream.path = "audio.ogg"; 
-            const transcription = await groq.audio.transcriptions.create({
-              file: stream,
-              model: "whisper-large-v3",
-              language: "es",
-            });
-            texto = transcription.text;
-            console.log(`🎙️ Audio transcripto (${nombre}): ${texto}`);
-          }
+          const buffer = Buffer.from(media.data, 'base64');
+          const stream = Readable.from(buffer);
+          stream.path = "audio.ogg"; 
+          const transcription = await groq.audio.transcriptions.create({
+            file: stream,
+            model: "whisper-large-v3",
+            language: "es",
+          });
+          texto = transcription.text;
         } catch (audioErr) {
-          console.error(`❌ Error audio:`, audioErr);
           return message.reply("No pude entender el audio, ¿me lo transcribís? ✍️");
         }
-      }
-
-      if (message.hasMedia && message.type === 'image') {
-        return message.reply("¡Recibí tu imagen! En un momento la revisamos.");
       }
 
       if (!texto || texto.trim() === "") return;
       const textoLower = texto.toLowerCase().trim();
 
-      // --- Lógica de Conversación y Estados ---
+      // --- Lógica de Estados ---
       let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
-if (!conv) {
-    conv = { telefono: message.from, estado: "inicio", botId: nombre, historial: [] };
-    await conversaciones.insertOne(conv);
-
-    if (nombre === "inmobiliaria") {
-        const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto nuestro *Brochure 2026* actualizado.\n\n¿En qué zona se encuentra el terreno?`;
-        
-        // 1. Cargamos el archivo PDF (debe estar en la carpeta raíz de tu proyecto)
-        const pathPdf = "./Brochure 2026.pdf";
-        
-        if (fs.existsSync(pathPdf)) {
+      if (!conv) {
+        conv = { telefono: message.from, estado: "inicio", botId: nombre, historial: [] };
+        await conversaciones.insertOne(conv);
+        if (nombre === "inmobiliaria") {
+          const saludoInmo = `Hola, buenas tardes. Soy Sofía de Soldani Propiedades.\n\nLe comparto nuestro *Brochure 2026* actualizado.\n\n¿En qué zona se encuentra el terreno?`;
+          const pathPdf = "./Brochure 2026.pdf";
+          if (fs.existsSync(pathPdf)) {
             const media = MessageMedia.fromFilePath(pathPdf);
-            
-            // 2. Enviamos el PDF con el texto como "caption"
             await client.sendMessage(message.from, media, { caption: saludoInmo });
-        } else {
-            // Backup por si te olvidaste de subir el archivo
-            console.error("❌ El archivo PDF no existe en la ruta:", pathPdf);
+          } else {
             await message.reply(saludoInmo);
+          }
+          await conversaciones.updateOne({ _id: conv._id }, { $push: { historial: { role: "assistant", content: saludoInmo } } });
+          return;
         }
-
-        await conversaciones.updateOne(
-            { _id: conv._id }, 
-            { $push: { historial: { role: "assistant", content: saludoInmo } } }
-        );
-        return; 
-    }
-}
-
-      const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
-      
-      if (conv.estado === "cerrada" && palabrasReapertura.some(p => textoLower.includes(p))) {
-        await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "inicio" } });
-        conv.estado = "inicio";
       }
 
+      // Confirmación de reserva y Google Calendar
       if (conv.estado === "pendiente_confirmacion") {
         if (["si", "sí", "dale", "ok", "de una", "perfecto", "confirmar", "confirmo"].includes(textoLower)) {
           const numFinal = message.from ? String(message.from).split('@')[0] : "desconocido";
-          
+          const fechaTurno = new Date(conv.fechaTurnoTemp);
+
+          // 1. Guardar en DB
           await reservas.insertOne({
             botId: nombre,
             telefono: numFinal,
-            fechaTurno: new Date(conv.fechaTurnoTemp),
-            estado: "pendiente",
+            fechaTurno: fechaTurno,
+            estado: "confirmado",
             fechaSolicitud: new Date()
           });
+
+          // 2. 📅 Agendar en Google Calendar
+          await agendarEnGoogle(fechaTurno, nombre, numFinal);
+
           await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
-          return message.reply("✅ Reserva tomada. Te confirmamos pronto.");
+          return message.reply("✅ ¡Excelente! Ya agendé tu turno en el calendario. Te esperamos.");
         }
       }
 
+      // El resto de la lógica de estados...
       if (conv.estado === "esperando_horario") {
         const resultado = parsearFechaTurno(textoLower);
         if (resultado && resultado.horaDetectada) {
@@ -304,37 +315,26 @@ if (!conv) {
         return message.reply("¡De nada! 😊");
       }
 
-      // --- Respuesta de la IA con Groq ---
+      // --- IA ---
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
-      const historialChat = convActualizada.historial || [];
-
       const completion = await groq.chat.completions.create({
-        messages: [
-          { role: "system", content: promptPersonalizado }, 
-          ...historialChat.slice(-8), 
-          { role: "user", content: texto }
-        ],
+        messages: [{ role: "system", content: promptPersonalizado }, ...(convActualizada.historial || []).slice(-8), { role: "user", content: texto }],
         model: "llama-3.1-8b-instant"
       });
 
       const respuestaIA = completion.choices[0].message.content;
-      
       await conversaciones.updateOne({ _id: conv._id }, { 
         $push: { historial: { $each: [{ role: "user", content: texto }, { role: "assistant", content: respuestaIA }], $slice: -20 } } 
       });
 
-      console.log(`🚀 Respondiendo inmediatamente a ${nombre}...`);
       return message.reply(respuestaIA);
 
-    } catch (err) {
-      console.error(`Error en bot ${nombre}:`, err);
-    }
+    } catch (err) { console.error(`Error en bot ${nombre}:`, err); }
   });
 
-  // Inicialización directa sin esperas largas
-  console.log(`🚀 Inicializando cliente ${nombre}...`);
   client.initialize();
 }
 
+// Lanzar los bots
 crearCliente("inmobiliaria", promptInmobiliaria);
 crearCliente("toronja", promptToronja);
