@@ -34,8 +34,7 @@ Enviar siempre:
 
 “Buen día, soy Sofía de Soldani Propiedades. ¿Con quién tengo el gusto de hablar?
 
-Le comparto a continuación toda la información, modelos, ficha técnica y fotos para que pueda verlo con tranquilidad:
-http://bit.ly/4trNVVr”
+Le comparto a continuación toda la información, modelos, ficha técnica y fotos para que pueda verlo con tranquilidad:”
 
 🧩 CALIFICACIÓN
 
