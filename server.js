@@ -237,26 +237,22 @@ if (isRender) {
 
     // ==========================================
 
-      if (
-
+if (
   textoLower.includes("permuta") ||
-
   textoLower.includes("auto") ||
-
   textoLower.includes("vehiculo") ||
-
   textoLower.includes("vehículo") ||
-
   textoLower.includes("parte de pago")
-
 ) {
 
-  return message.reply(
-
-    "Podemos evaluar tomar bienes en parte de pago, pero cada caso se analiza de forma puntual.\n\n¿Podrías enviarme información completa del bien (año, modelo, estado, etc) para poder consultarlo?"
-
+  await conversaciones.updateOne(
+    { _id: conv._id },
+    { $set: { estado: "evaluando_permuta" } }
   );
 
+  return message.reply(
+    "Podemos evaluar tomar bienes en parte de pago, pero cada caso se analiza de forma puntual.\n\n¿Podrías enviarme información completa del bien (año, modelo, estado, etc) para poder consultarlo?"
+  );
 }
 
       // --- Lógica de Conversación y Estados ---
@@ -331,6 +327,18 @@ if (!conv) {
         await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
         return message.reply("¡De nada! 😊");
       }
+
+      if (conv.estado === "evaluando_permuta") {
+
+  await conversaciones.updateOne(
+    { _id: conv._id },
+    { $set: { estado: "cerrada" } }
+  );
+
+  return message.reply(
+    `Perfecto, ya tomo nota de los datos del bien y lo consulto con el área comercial para ver si es viable. En breve le confirmo.`
+  );
+}
 
       // --- Respuesta de la IA con Groq ---
       const convActualizada = await conversaciones.findOne({ _id: conv._id });
