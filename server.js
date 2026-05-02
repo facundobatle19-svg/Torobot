@@ -233,23 +233,33 @@ if (isRender) {
 
     // ==========================================
       
- // ==========================================
-// 🚗 CONTROL DURO DE PERMUTAS (REFORZADO)
-// ==========================================
-const palabrasPermuta = ["permuta", "parte de pago", "toman", "tomas"];
-const esInfoDeAuto = textoLower.includes("año") || textoLower.includes("modelo") || texto.length > 60;
+==========================================
 
-// Si pregunta por permuta PERO todavía no nos dio los detalles técnicos
-if (palabrasPermuta.some(p => textoLower.includes(p)) && !esInfoDeAuto) {
-    console.log(`[Permuta] Bloqueando respuesta de IA y pidiendo datos.`);
-    return message.reply(
-        "Podemos evaluar tomar bienes en parte de pago, pero cada caso se analiza de forma puntual.\n\n" +
-        "Por favor, enviame la información completa (*marca, modelo, año y estado*) y fotos si tenés, así lo consulto con el área de tasaciones."
-    );
+    // 🚗 CONTROL DURO DE PERMUTAS (ANTES DE IA)
+
+    // ==========================================
+
+      if (
+
+  textoLower.includes("permuta") ||
+
+  textoLower.includes("auto") ||
+
+  textoLower.includes("vehiculo") ||
+
+  textoLower.includes("vehículo") ||
+
+  textoLower.includes("parte de pago")
+
+) {
+
+  return message.reply(
+
+    "Podemos evaluar tomar bienes en parte de pago, pero cada caso se analiza de forma puntual.\n\n¿Podrías enviarme información completa del bien (año, modelo, estado, etc) para poder consultarlo?"
+
+  );
+
 }
-
-// Si el mensaje YA trae info (año, modelo o es un texto largo), 
-// dejamos que pase a la IA para que Sofía diga "Perfecto, ya lo consulto".
 
       // --- Lógica de Conversación y Estados ---
       let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
