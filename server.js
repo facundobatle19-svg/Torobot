@@ -160,7 +160,7 @@ function parsearFechaTurno(texto) {
   return { fecha, horaDetectada, diaDetectado };
 }
 
-const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya"];
+const palabrasCierre = ["chau", "chao", "adios", "adiós", "nos vemos", "hasta luego", "bye", "gracias", "impecable", "joya", "listo", "nada mas", "nada más"];
 
 // ==========================================
 // 📱 FÁBRICA DE BOTS (SIN DELAYS)
@@ -231,6 +231,7 @@ if (isRender) {
       if (!texto || texto.trim() === "") return;
       const textoLower = texto.toLowerCase().trim();
 
+
     // ==========================================
       
 
@@ -264,6 +265,14 @@ if (!conv) {
         );
         return; 
     }
+
+}
+
+const esNegativaCierre = ["no", "nono", "ninguna", "por ahora no", "nada"].includes(textoLower);
+
+if (esNegativaCierre && conv.historial.length > 3) {
+    await conversaciones.updateOne({ _id: conv._id }, { $set: { estado: "cerrada" } });
+    return message.reply("Entiendo perfectamente. Quedo a disposición para cuando lo necesites. ¡Saludos!");
 }
 
           // 🚗 CONTROL DURO DE PERMUTAS (ANTES DE IA)
