@@ -233,27 +233,7 @@ if (isRender) {
 
     // ==========================================
       
-    // 🚗 CONTROL DURO DE PERMUTAS (ANTES DE IA)
 
-    // ==========================================
-
-if (
-  textoLower.includes("permuta") ||
-  textoLower.includes("auto") ||
-  textoLower.includes("vehiculo") ||
-  textoLower.includes("vehículo") ||
-  textoLower.includes("parte de pago")
-) {
-
-  await conversaciones.updateOne(
-    { _id: conv._id },
-    { $set: { estado: "evaluando_permuta" } }
-  );
-
-  return message.reply(
-    "Podemos evaluar tomar bienes en parte de pago, pero cada caso se analiza de forma puntual.\n\n¿Podrías enviarme información completa del bien (año, modelo, estado, etc) para poder consultarlo?"
-  );
-}
 
       // --- Lógica de Conversación y Estados ---
       let conv = await conversaciones.findOne({ telefono: message.from, botId: nombre });
@@ -284,6 +264,28 @@ if (!conv) {
         );
         return; 
     }
+}
+
+          // 🚗 CONTROL DURO DE PERMUTAS (ANTES DE IA)
+
+    // ==========================================
+
+if (
+  textoLower.includes("permuta") ||
+  textoLower.includes("auto") ||
+  textoLower.includes("vehiculo") ||
+  textoLower.includes("vehículo") ||
+  textoLower.includes("parte de pago")
+) {
+
+  await conversaciones.updateOne(
+    { _id: conv._id },
+    { $set: { estado: "evaluando_permuta" } }
+  );
+
+  return message.reply(
+    "Podemos evaluar tomar bienes en parte de pago, pero cada caso se analiza de forma puntual.\n\n¿Podrías enviarme información completa del bien (año, modelo, estado, etc) para poder consultarlo?"
+  );
 }
 
       const palabrasReapertura = ["hola", "buenas", "consulta", "necesito", "quiero", "turno", "che"];
